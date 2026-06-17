@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stream Archiver — Settings</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+  <nav class="bg-slate-800 px-6 py-3 flex items-center justify-between">
+    <span class="font-semibold">Stream Archiver</span>
+    <div class="space-x-4 text-sm">
+      <a href="/" class="text-slate-300 hover:text-white">Dashboard</a>
+      <a href="/config" class="text-indigo-400">Settings</a>
+      <a href="/transfer" class="text-slate-300 hover:text-white">Transfer</a>
+    </div>
+  </nav>
+
+  <main x-data="configPage()" x-init="load()" class="p-6 max-w-4xl mx-auto space-y-6">
+    <p x-show="message" x-text="message" class="text-sm text-green-400"></p>
+
+    <section class="bg-slate-800 rounded-lg p-4">
+      <h2 class="font-semibold mb-3">General</h2>
+      <div class="grid grid-cols-2 gap-4 text-sm">
+        <label class="block">
+          Twitch Client ID
+          <input x-model="settings.twitch_client_id" class="w-full mt-1 rounded bg-slate-700 px-3 py-2" />
+        </label>
+        <label class="block">
+          Twitch Client Secret
+          <input x-model="settings.twitch_client_secret" type="password" placeholder="(unchanged)"
+                 class="w-full mt-1 rounded bg-slate-700 px-3 py-2" />
+        </label>
+        <label class="block">
+          Default recording quality
+          <input x-model="settings.default_recording_quality" placeholder="best"
+                 class="w-full mt-1 rounded bg-slate-700 px-3 py-2" />
+        </label>
+        <label class="block">
+          Default upload privacy
+          <select x-model="settings.default_upload_privacy" class="w-full mt-1 rounded bg-slate-700 px-3 py-2">
+            <option value="public">Public</option>
+            <option value="unlisted">Unlisted</option>
+            <option value="private">Private</option>
+          </select>
+        </label>
+        <label class="block">
+          Check interval (seconds)
+          <input x-model.number="settings.check_interval" type="number"
+                 class="w-full mt-1 rounded bg-slate-700 px-3 py-2" />
+        </label>
+        <label class="block">
+          Post-recording cooldown (seconds)
+          <input x-model.number="settings.post_recording_cooldown" type="number"
+                 class="w-full mt-1 rounded bg-slate-700 px-3 py-2" />
+        </label>
+      </div>
+      <button @click="saveSettings()" class="mt-4 bg-indigo-600 hover:bg-indigo-500 rounded px-4 py-2 text-sm">
+        Save general settings
+      </button>
+    </section>
+
+    <section class="bg-slate-800 rounded-lg p-4">
+      <h2 class="font-semibold mb-3">Webhook notifications</h2>
+      <div class="grid grid-cols-2 gap-4 text-sm">
+        <label class="block col-span-2">
+          Webhook URL
+          <input x-model="webhook.url" class="w-full mt-1 rounded bg-slate-700 px-3 py-2" />
+        </label>
+        <label class="block">
+          Type
+          <select x-model="webhook.type" class="w-full mt-1 rounded bg-slate-700 px-3 py-2">
+            <option value="discord">Discord</option>
+            <option value="slack">Slack</option>
+            <option value="generic">Generic</option>
+          </select>
+        </label>
+        <div class="col-span-2">
+          <p class="mb-1">Events</p>
+          <div class="flex flex-wrap gap-3">
+            <template x-for="evt in allEvents" :key="evt">
+              <label class="flex items-center gap-1">
+                <input type="checkbox" :value="evt" @change="toggleEvent(evt, $event.target.checked)"
+                       :checked="webhook.events.includes(evt)" />
+                <span x-text="evt"></span>
+              </label>
+            </template>
+          </div>
+        </div>
+      </div>
+      <button @click="saveSettings()" class="mt-4 bg-indigo-600 hover:bg-indigo-500 rounded px-4 py-2 text-sm">
+        Save webhook settings
+      </button>
+    </section>
+
+    <section class="bg-slate-800 rounded-lg p-4">
+      <h2 class="font-semibold mb-3">YouTube accounts</h2>
+      <div class="space-y-2 mb-3">
+        <template x-for="acc in youtubeAccounts" :key="acc.id">
+          <div class="bg-slate-700 rounded p-3 text-sm flex justify-between items-center">
+            <span x-text="`${acc.channel_name || 'Unknown channel'} (${acc.email || 'no email'})`"></span>
+            <button @click="disconnectAccount(acc.id)" class="text-red-400 text-xs">Disconnect</button>
+          </div>
+        </template>
+      </div>
+      <a href="/api/youtube/connect" class="bg-indigo-600 hover:bg-indigo-500 rounded px-4 py-2 text-sm inline-block">
+        Connect account
+      </a>
+    </section>
+
+    <section class="bg-slate-800 rounded-lg p-4">
+      <h2 class="font-semibold mb-3">Channels</h2>
+      <div class="space-y-4">
+        <template x-for="ch in channels" :key="ch.id">
+          <div class="bg-slate-700 rounded p-3 text-sm">
+            <div class="flex justify-between items-center mb-2">
+              <span class="font-medium" x-text="ch.name"></span>
+              <label class="flex items-center gap-2 text-xs">
+                Enabled
+                <input type="checkbox" :checked="ch.enabled"
+                       @change="updateChannel(ch, { enabled: $event.target.checked })" />
+              </label>
+            </div>
+
+            <p class="text-xs text-slate-400 mb-1">Destinations</p>
+            <div class="space-y-2">
+              <template x-for="dest in destinations[ch.id] || []" :key="dest.id">
+                <div class="grid grid-cols-5 gap-2 items-center bg-slate-800 rounded p-2">
+                  <select class="rounded bg-slate-700 px-2 py-1 text-xs col-span-1"
+                          @change="updateDestination(ch.id, dest, { youtubeAccountId: $event.target.value })">
+                    <template x-for="acc in youtubeAccounts" :key="acc.id">
+                      <option :value="acc.id" :selected="acc.id === dest.youtube_account_id"
+                              x-text="acc.channel_name || acc.email"></option>
+                    </template>
+                  </select>
+                  <input placeholder="Playlist ID" :value="dest.playlist_id"
+                         @change="updateDestination(ch.id, dest, { playlistId: $event.target.value })"
+                         class="rounded bg-slate-700 px-2 py-1 text-xs col-span-1" />
+                  <input placeholder="Label" :value="dest.label"
+                         @change="updateDestination(ch.id, dest, { label: $event.target.value })"
+                         class="rounded bg-slate-700 px-2 py-1 text-xs col-span-1" />
+                  <select class="rounded bg-slate-700 px-2 py-1 text-xs col-span-1"
+                          @change="updateDestination(ch.id, dest, { privacy: $event.target.value })">
+                    <option value="public" :selected="dest.privacy === 'public'">Public</option>
+                    <option value="unlisted" :selected="dest.privacy === 'unlisted'">Unlisted</option>
+                    <option value="private" :selected="dest.privacy === 'private'">Private</option>
+                  </select>
+                  <button @click="removeDestination(ch.id, dest.id)" class="text-red-400 text-xs">Remove</button>
+                </div>
+              </template>
+            </div>
+            <button @click="addDestination(ch.id)" class="text-indigo-400 text-xs mt-2">+ Add destination</button>
+          </div>
+        </template>
+      </div>
+
+      <div class="flex gap-2 mt-4">
+        <input x-model="newChannelName" placeholder="twitch channel name"
+               class="rounded bg-slate-700 px-3 py-2 text-sm flex-1" />
+        <button @click="addChannel()" class="bg-indigo-600 hover:bg-indigo-500 rounded px-4 py-2 text-sm">
+          Add channel
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function configPage() {
+      return {
+        settings: {},
+        webhook: { url: '', type: 'discord', events: [] },
+        youtubeAccounts: [],
+        channels: [],
+        destinations: {},
+        newChannelName: '',
+        message: '',
+        allEvents: [
+          'stream_online', 'recording_start', 'recording_end',
+          'upload_start', 'upload_end', 'upload_fail', 'error',
+        ],
+
+        async load() {
+          const [settingsRes, accountsRes, channelsRes] = await Promise.all([
+            fetch('/api/config').then((r) => r.json()),
+            fetch('/api/youtube/accounts').then((r) => r.json()),
+            fetch('/api/channels').then((r) => r.json()),
+          ]);
+          this.settings = settingsRes;
+          this.webhook = settingsRes.webhook || { url: '', type: 'discord', events: [] };
+          this.youtubeAccounts = accountsRes;
+          this.channels = channelsRes;
+          for (const ch of this.channels) {
+            this.destinations[ch.id] = await fetch(`/api/channels/${ch.id}/destinations`).then((r) => r.json());
+          }
+        },
+
+        toggleEvent(evt, checked) {
+          if (checked && !this.webhook.events.includes(evt)) {
+            this.webhook.events.push(evt);
+          } else if (!checked) {
+            this.webhook.events = this.webhook.events.filter((e) => e !== evt);
+          }
+        },
+
+        async saveSettings() {
+          const body = { ...this.settings, webhook: this.webhook };
+          if (!body.twitch_client_secret) delete body.twitch_client_secret;
+          await fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          this.message = 'Settings saved.';
+          setTimeout(() => (this.message = ''), 2000);
+        },
+
+        async disconnectAccount(id) {
+          await fetch(`/api/youtube/accounts/${id}`, { method: 'DELETE' });
+          this.youtubeAccounts = this.youtubeAccounts.filter((a) => a.id !== id);
+        },
+
+        async addChannel() {
+          if (!this.newChannelName.trim()) return;
+          const res = await fetch('/api/channels', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: this.newChannelName.trim() }),
+          });
+          const channel = await res.json();
+          this.channels.push(channel);
+          this.destinations[channel.id] = [];
+          this.newChannelName = '';
+        },
+
+        async updateChannel(ch, patch) {
+          await fetch(`/api/channels/${ch.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patch),
+          });
+        },
+
+        async addDestination(channelId) {
+          if (this.youtubeAccounts.length === 0) return;
+          const res = await fetch(`/api/channels/${channelId}/destinations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ youtubeAccountId: this.youtubeAccounts[0].id }),
+          });
+          const dest = await res.json();
+          this.destinations[channelId] = [...(this.destinations[channelId] || []), dest];
+        },
+
+        async updateDestination(channelId, dest, patch) {
+          await fetch(`/api/channels/${channelId}/destinations/${dest.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patch),
+          });
+        },
+
+        async removeDestination(channelId, destId) {
+          await fetch(`/api/channels/${channelId}/destinations/${destId}`, { method: 'DELETE' });
+          this.destinations[channelId] = this.destinations[channelId].filter((d) => d.id !== destId);
+        },
+      };
+    }
+  </script>
+</body>
+</html>

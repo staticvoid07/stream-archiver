@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stream Archiver — Transfer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+  <nav class="bg-slate-800 px-6 py-3 flex items-center justify-between">
+    <span class="font-semibold">Stream Archiver</span>
+    <div class="space-x-4 text-sm">
+      <a href="/" class="text-slate-300 hover:text-white">Dashboard</a>
+      <a href="/config" class="text-slate-300 hover:text-white">Settings</a>
+      <a href="/transfer" class="text-indigo-400">Transfer</a>
+    </div>
+  </nav>
+
+  <main x-data="transferPage()" x-init="load()" class="p-6 max-w-4xl mx-auto space-y-6">
+    <section class="bg-slate-800 rounded-lg p-4">
+      <h2 class="font-semibold mb-3">New transfer</h2>
+      <div class="grid grid-cols-2 gap-4 text-sm">
+        <label class="block">
+          Source account
+          <select x-model="form.sourceAccountId" class="w-full mt-1 rounded bg-slate-700 px-3 py-2">
+            <template x-for="acc in accounts" :key="acc.id">
+              <option :value="acc.id" x-text="acc.channel_name || acc.email"></option>
+            </template>
+          </select>
+        </label>
+        <label class="block">
+          Source playlist ID (blank = all videos)
+          <input x-model="form.sourcePlaylistId" class="w-full mt-1 rounded bg-slate-700 px-3 py-2" />
+        </label>
+        <label class="block">
+          Destination account
+          <select x-model="form.destAccountId" class="w-full mt-1 rounded bg-slate-700 px-3 py-2">
+            <template x-for="acc in accounts" :key="acc.id">
+              <option :value="acc.id" x-text="acc.channel_name || acc.email"></option>
+            </template>
+          </select>
+        </label>
+        <label class="block">
+          Destination playlist ID (optional)
+          <input x-model="form.destPlaylistId" class="w-full mt-1 rounded bg-slate-700 px-3 py-2" />
+        </label>
+      </div>
+      <button @click="startTransfer()" class="mt-4 bg-indigo-600 hover:bg-indigo-500 rounded px-4 py-2 text-sm">
+        Start transfer
+      </button>
+    </section>
+
+    <section class="bg-slate-800 rounded-lg p-4">
+      <h2 class="font-semibold mb-3">Transfer jobs</h2>
+      <template x-if="jobs.length === 0">
+        <p class="text-slate-500 text-sm">No transfer jobs yet.</p>
+      </template>
+      <div class="space-y-3">
+        <template x-for="job in jobs" :key="job.id">
+          <div class="bg-slate-700 rounded p-3 text-sm">
+            <div class="flex justify-between items-center">
+              <span x-text="`Job #${job.id} — ${job.done_videos}/${job.total_videos}`"></span>
+              <span class="px-2 py-0.5 rounded text-xs"
+                    :class="{
+                      'bg-green-700': job.status === 'done',
+                      'bg-yellow-700': job.status === 'running',
+                      'bg-slate-600': job.status === 'paused',
+                      'bg-orange-700': job.status === 'partial',
+                      'bg-red-700': job.status === 'error'
+                    }"
+                    x-text="job.status"></span>
+            </div>
+            <div class="w-full bg-slate-600 rounded h-1.5 mt-2">
+              <div class="bg-indigo-500 h-1.5 rounded"
+                   :style="`width: ${job.total_videos ? (job.done_videos / job.total_videos) * 100 : 0}%`"></div>
+            </div>
+            <div class="flex gap-3 mt-2 text-xs">
+              <button x-show="job.status === 'running'" @click="pause(job.id)" class="text-indigo-400">Pause</button>
+              <button x-show="job.status === 'paused'" @click="resume(job.id)" class="text-indigo-400">Resume</button>
+              <button @click="cancel(job.id)" class="text-red-400">Cancel</button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function transferPage() {
+      return {
+        accounts: [],
+        jobs: [],
+        form: { sourceAccountId: '', sourcePlaylistId: '', destAccountId: '', destPlaylistId: '' },
+
+        async load() {
+          this.accounts = await fetch('/api/youtube/accounts').then((r) => r.json());
+          await this.refreshJobs();
+          setInterval(() => this.refreshJobs(), 5000);
+        },
+
+        async refreshJobs() {
+          this.jobs = await fetch('/api/transfer').then((r) => r.json());
+        },
+
+        async startTransfer() {
+          if (!this.form.sourceAccountId || !this.form.destAccountId) return;
+          await fetch('/api/transfer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(this.form),
+          });
+          await this.refreshJobs();
+        },
+
+        async pause(id) {
+          await fetch(`/api/transfer/${id}/pause`, { method: 'POST' });
+          await this.refreshJobs();
+        },
+
+        async resume(id) {
+          await fetch(`/api/transfer/${id}/resume`, { method: 'POST' });
+          await this.refreshJobs();
+        },
+
+        async cancel(id) {
+          await fetch(`/api/transfer/${id}`, { method: 'DELETE' });
+          await this.refreshJobs();
+        },
+      };
+    }
+  </script>
+</body>
+</html>

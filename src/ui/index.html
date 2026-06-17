@@ -2,10 +2,177 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Stream Archiver</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center">
-  <p class="text-slate-400">Dashboard placeholder — built in a later stage.</p>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+  <nav class="bg-slate-800 px-6 py-3 flex items-center justify-between">
+    <span class="font-semibold">Stream Archiver</span>
+    <div class="space-x-4 text-sm">
+      <a href="/" class="text-indigo-400">Dashboard</a>
+      <a href="/config" class="text-slate-300 hover:text-white">Settings</a>
+      <a href="/transfer" class="text-slate-300 hover:text-white">Transfer</a>
+      <button onclick="fetch('/api/auth/logout',{method:'POST'}).then(()=>location.href='/login')"
+              class="text-slate-400 hover:text-white">Log out</button>
+    </div>
+  </nav>
+
+  <main x-data="dashboard()" class="p-6 grid gap-6 lg:grid-cols-2 max-w-6xl mx-auto">
+    <section class="bg-slate-800 rounded-lg p-4">
+      <h2 class="font-semibold mb-3">Live channels</h2>
+      <template x-if="Object.keys(channels).length === 0">
+        <p class="text-slate-500 text-sm">No channels configured yet.</p>
+      </template>
+      <div class="space-y-2">
+        <template x-for="(ch, name) in channels" :key="name">
+          <div class="bg-slate-700 rounded p-3 text-sm">
+            <div class="flex justify-between">
+              <span class="font-medium" x-text="name"></span>
+              <span class="px-2 py-0.5 rounded text-xs"
+                    :class="{
+                      'bg-green-700': ch.status === 'recording',
+                      'bg-slate-600': ch.status === 'idle',
+                      'bg-yellow-700': ch.status === 'uploading'
+                    }"
+                    x-text="ch.status"></span>
+            </div>
+            <p x-show="ch.title" x-text="ch.title" class="text-slate-400 mt-1"></p>
+            <p x-show="ch.fileSizeBytes" class="text-slate-500 text-xs mt-1">
+              <span x-text="formatBytes(ch.fileSizeBytes)"></span>
+            </p>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <section class="bg-slate-800 rounded-lg p-4">
+      <h2 class="font-semibold mb-3">Upload queue</h2>
+      <template x-if="queue.length === 0">
+        <p class="text-slate-500 text-sm">Queue is empty.</p>
+      </template>
+      <div class="space-y-2">
+        <template x-for="item in queue" :key="item.id">
+          <div class="bg-slate-700 rounded p-3 text-sm">
+            <div class="flex justify-between">
+              <span x-text="item.title"></span>
+              <span class="text-xs text-slate-400" x-text="item.status"></span>
+            </div>
+            <div class="w-full bg-slate-600 rounded h-1.5 mt-2" x-show="item.status === 'uploading'">
+              <div class="bg-indigo-500 h-1.5 rounded" :style="`width: ${item.progress}%`"></div>
+            </div>
+            <button x-show="item.status === 'error'" @click="retry(item.id)"
+                    class="text-xs text-indigo-400 mt-1">Retry</button>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <section class="bg-slate-800 rounded-lg p-4">
+      <h2 class="font-semibold mb-3">Transfer jobs</h2>
+      <template x-if="Object.keys(transfers).length === 0">
+        <p class="text-slate-500 text-sm">No active transfers.</p>
+      </template>
+      <div class="space-y-2">
+        <template x-for="(job, id) in transfers" :key="id">
+          <div class="bg-slate-700 rounded p-3 text-sm">
+            <div class="flex justify-between">
+              <span x-text="`${job.done}/${job.total}`"></span>
+              <span class="text-xs text-slate-400" x-text="job.status"></span>
+            </div>
+            <p x-show="job.currentTitle" x-text="job.currentTitle" class="text-slate-400 text-xs mt-1"></p>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <section class="bg-slate-800 rounded-lg p-4">
+      <h2 class="font-semibold mb-3">System</h2>
+      <p class="text-sm text-slate-400">Version: <span x-text="system.version"></span></p>
+      <p class="text-sm text-slate-400">Uptime: <span x-text="formatUptime(system.uptime)"></span></p>
+      <p class="text-sm text-slate-400" x-show="system.diskUsage">
+        Disk usage: <span x-text="system.diskUsage"></span>
+      </p>
+    </section>
+
+    <section class="bg-slate-800 rounded-lg p-4 lg:col-span-2">
+      <h2 class="font-semibold mb-3">Recent activity</h2>
+      <ul class="text-sm space-y-1 text-slate-400 max-h-64 overflow-y-auto">
+        <template x-for="(entry, idx) in activity" :key="idx">
+          <li x-text="entry"></li>
+        </template>
+      </ul>
+    </section>
+  </main>
+
+  <script>
+    function dashboard() {
+      return {
+        channels: {},
+        queue: [],
+        transfers: {},
+        system: { version: '', uptime: 0, diskUsage: null },
+        activity: [],
+
+        init() {
+          const es = new EventSource('/api/status/stream');
+          es.addEventListener('status', (event) => {
+            const payload = JSON.parse(event.data);
+            this.applyPatch(payload);
+          });
+        },
+
+        applyPatch(payload) {
+          if (payload.channels !== undefined && payload.scope === undefined) {
+            this.channels = payload.channels;
+            this.queue = payload.queue;
+            this.transfers = payload.transfers;
+            this.system = payload.system;
+            return;
+          }
+          if (payload.scope === 'channel') {
+            this.channels = { ...this.channels, [payload.key]: payload.data };
+            this.activity.unshift(`${payload.key}: ${payload.data.status}`);
+          } else if (payload.scope === 'queue') {
+            this.queue = payload.data;
+          } else if (payload.scope === 'transfer') {
+            if (payload.data === null) {
+              const next = { ...this.transfers };
+              delete next[payload.key];
+              this.transfers = next;
+            } else {
+              this.transfers = { ...this.transfers, [payload.key]: payload.data };
+            }
+          } else if (payload.scope === 'system') {
+            this.system = payload.data;
+          }
+        },
+
+        async retry(id) {
+          await fetch(`/api/queue/retry/${id}`, { method: 'POST' });
+        },
+
+        formatBytes(bytes) {
+          if (!bytes) return '0 B';
+          const units = ['B', 'KB', 'MB', 'GB'];
+          let i = 0;
+          let value = bytes;
+          while (value >= 1024 && i < units.length - 1) {
+            value /= 1024;
+            i += 1;
+          }
+          return `${value.toFixed(1)} ${units[i]}`;
+        },
+
+        formatUptime(seconds) {
+          if (!seconds) return '0m';
+          const h = Math.floor(seconds / 3600);
+          const m = Math.floor((seconds % 3600) / 60);
+          return `${h}h ${m}m`;
+        },
+      };
+    }
+  </script>
 </body>
 </html>

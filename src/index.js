@@ -14,6 +14,8 @@ const queueApi = require('./api/queue');
 const configApi = require('./api/config');
 const transferApi = require('./api/transfer');
 const transferWorker = require('./workers/transferWorker');
+const fs = require('fs');
+const state = require('./state');
 
 migrate();
 
@@ -48,12 +50,28 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'ui', 'index.html')
 app.get('/transfer', (req, res) => res.sendFile(path.join(__dirname, 'ui', 'transfer.html')));
 app.get('/config', (req, res) => res.sendFile(path.join(__dirname, 'ui', 'config.html')));
 
+function updateSystemInfo() {
+  let diskUsage = null;
+  try {
+    const stats = fs.statfsSync(process.env.DATA_DIR || './data');
+    const totalBytes = stats.blocks * stats.bsize;
+    const freeBytes = stats.bfree * stats.bsize;
+    const usedPercent = totalBytes === 0 ? 0 : ((totalBytes - freeBytes) / totalBytes) * 100;
+    diskUsage = `${usedPercent.toFixed(1)}% used`;
+  } catch (err) {
+    // statfs unsupported on this platform; leave diskUsage null.
+  }
+  state.setSystemInfo({ diskUsage, uptime: process.uptime() });
+}
+
 app.locals.startWorkers = function startWorkers() {
   if (app.locals.workersStarted) return;
   app.locals.workersStarted = true;
   monitor.startAllMonitors();
   uploader.start();
   transferWorker.start();
+  updateSystemInfo();
+  setInterval(updateSystemInfo, 30_000);
 };
 
 if (require('./config').isSetupComplete()) {
