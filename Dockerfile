@@ -15,6 +15,6 @@ RUN npm ci --omit=dev
 COPY src ./src
 COPY package.json ./
 
-EXPOSE 7373
+EXPOSE 443
 
 CMD ["node", "src/index.js"]
