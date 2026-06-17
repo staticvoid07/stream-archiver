@@ -6,6 +6,7 @@ const { sessionMiddleware, requireSetup, requireAuth, isPublicPath } = require('
 const authApi = require('./api/auth');
 const setupApi = require('./api/setup');
 const channelsApi = require('./api/channels');
+const statusApi = require('./api/status');
 
 migrate();
 
@@ -30,6 +31,7 @@ app.use((req, res, next) => {
 });
 
 app.use('/api/channels', channelsApi);
+app.use('/api/status', statusApi);
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'ui', 'index.html')));
 
