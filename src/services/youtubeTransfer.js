@@ -51,11 +51,29 @@ async function getVideoMetadata(videoId, accountId) {
   };
 }
 
-function downloadVideo(videoId, destDir) {
+const PROGRESS_TEMPLATE = 'download:%(progress._percent_str)s';
+const PROGRESS_LINE_PATTERN = /download:\s*([\d.]+)%/;
+
+function downloadVideo(videoId, destDir, onProgress) {
   return new Promise((resolve, reject) => {
     const outputTemplate = path.join(destDir, `${videoId}.%(ext)s`);
-    const child = spawn('yt-dlp', ['-o', outputTemplate, `https://www.youtube.com/watch?v=${videoId}`]);
+    const child = spawn('yt-dlp', [
+      '--newline',
+      '--progress-template', PROGRESS_TEMPLATE,
+      '-o', outputTemplate,
+      `https://www.youtube.com/watch?v=${videoId}`,
+    ]);
     let stderr = '';
+    let stdoutTail = '';
+    child.stdout.on('data', (chunk) => {
+      stdoutTail += chunk;
+      const lines = stdoutTail.split('\n');
+      stdoutTail = lines.pop();
+      for (const line of lines) {
+        const match = line.match(PROGRESS_LINE_PATTERN);
+        if (match && onProgress) onProgress(parseFloat(match[1]));
+      }
+    });
     child.stderr.on('data', (chunk) => { stderr += chunk; });
     child.on('exit', (code) => {
       if (code !== 0) {
@@ -108,11 +126,13 @@ async function downloadCaptionTrack(videoId, accountId, destPath) {
   return destPath;
 }
 
-async function transferOneVideo(item, job) {
+async function transferOneVideo(item, job, onProgress) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yt-transfer-'));
   try {
     const metadata = await getVideoMetadata(item.source_video_id, job.source_account_id);
-    const videoPath = await downloadVideo(item.source_video_id, tmpDir);
+    const videoPath = await downloadVideo(item.source_video_id, tmpDir, (percent) => {
+      if (onProgress) onProgress({ stage: 'downloading', percent });
+    });
 
     const destVideoId = await uploadVideo(
       videoPath,
@@ -123,7 +143,9 @@ async function transferOneVideo(item, job) {
         privacy: 'unlisted',
         playlistId: job.dest_playlist_id,
       },
-      null
+      (percent) => {
+        if (onProgress) onProgress({ stage: 'uploading', percent });
+      }
     );
 
     if (metadata.thumbnailUrl) {

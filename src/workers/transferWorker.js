@@ -14,6 +14,8 @@ function refreshJobState(jobId) {
     total: job.total_videos,
     status: job.status,
     currentTitle: current ? current.title : null,
+    currentStage: null,
+    currentProgress: null,
   });
 }
 
@@ -108,7 +110,16 @@ async function processNextItem() {
   }
 
   try {
-    const destVideoId = await transferOneVideo(item, job);
+    const destVideoId = await transferOneVideo(item, job, ({ stage, percent }) => {
+      state.setTransferState(job.id, {
+        done: job.done_videos,
+        total: job.total_videos,
+        status: job.status,
+        currentTitle: item.title,
+        currentStage: stage,
+        currentProgress: percent,
+      });
+    });
     db.prepare("UPDATE transfer_items SET status = 'done', dest_video_id = ? WHERE id = ?").run(destVideoId, item.id);
     db.prepare('UPDATE transfer_jobs SET done_videos = done_videos + 1, updated_at = ? WHERE id = ?').run(
       new Date().toISOString(),
