@@ -1,0 +1,22 @@
+{
+  "name": "stream-archiver",
+  "version": "1.0.0",
+  "description": "Self-hosted Twitch stream archiver with YouTube upload and transfer tooling",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "better-sqlite3": "^11.3.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "googleapis": "^140.0.1",
+    "multer": "^2.0.1",
+    "tmi.js": "^1.8.5",
+    "uuid": "^9.0.1"
+  }
+}
