@@ -1,8 +1,10 @@
 const { db } = require('../db');
 const state = require('../state');
 const { listPlaylistVideos, listChannelVideos, transferOneVideo } = require('../services/youtubeTransfer');
+const { isUploadQuotaError } = require('../services/youtubeQuota');
 
 const POLL_INTERVAL_MS = 5_000;
+const QUOTA_RETRY_DELAY_MS = 60 * 60 * 1000;
 let running = false;
 
 function refreshJobState(jobId) {
@@ -126,6 +128,16 @@ async function processNextItem() {
       job.id
     );
   } catch (err) {
+    if (isUploadQuotaError(err)) {
+      pause(job.id);
+      state.addEvent(
+        'transfer_quota_paused',
+        null,
+        `Job #${job.id} paused: YouTube daily upload quota exceeded. Will auto-resume in 1 hour.`
+      );
+      setTimeout(() => resume(job.id), QUOTA_RETRY_DELAY_MS);
+      return;
+    }
     db.prepare("UPDATE transfer_items SET status = 'error', error_message = ? WHERE id = ?").run(
       String(err.message || err),
       item.id

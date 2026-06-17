@@ -6,12 +6,15 @@ const { uploadVideo, attachCaptions, addToPlaylist } = require('../services/yout
 const { uploadTitleFromFilename } = require('./recorder');
 const { readChatLog } = require('./chatRecorder');
 const { writeSrt } = require('./subtitleWriter');
+const { isUploadQuotaError } = require('../services/youtubeQuota');
 
 const DATA_DIR = process.env.DATA_DIR || './data';
 const POLL_INTERVAL_MS = 5_000;
+const QUOTA_RETRY_DELAY_MS = 60 * 60 * 1000;
 
 let running = false;
 let pollTimer = null;
+const accountsOnQuotaCooldown = new Map();
 
 function refreshQueueSnapshot() {
   const rows = db.prepare('SELECT * FROM upload_queue ORDER BY created_at').all();
@@ -19,7 +22,14 @@ function refreshQueueSnapshot() {
 }
 
 function nextPendingItem() {
-  return db.prepare("SELECT * FROM upload_queue WHERE status = 'pending' ORDER BY created_at LIMIT 1").get();
+  const candidates = db
+    .prepare("SELECT * FROM upload_queue WHERE status = 'pending' ORDER BY created_at")
+    .all();
+  const now = Date.now();
+  return candidates.find((item) => {
+    const cooldownUntil = accountsOnQuotaCooldown.get(item.youtube_account_id);
+    return !cooldownUntil || cooldownUntil <= now;
+  });
 }
 
 function updateItem(id, fields) {
@@ -87,8 +97,18 @@ async function processItem(item) {
 
     maybeDeleteSourceFiles(item.filepath);
   } catch (err) {
-    updateItem(item.id, { status: 'error', error_message: String(err.message || err) });
-    state.addEvent('upload_fail', item.channel, `Upload failed: ${item.title}: ${err.message}`);
+    if (isUploadQuotaError(err)) {
+      accountsOnQuotaCooldown.set(item.youtube_account_id, Date.now() + QUOTA_RETRY_DELAY_MS);
+      updateItem(item.id, { status: 'pending', error_message: null });
+      state.addEvent(
+        'upload_quota_paused',
+        item.channel,
+        `YouTube daily upload quota exceeded for this account; will retry "${item.title}" in 1 hour`
+      );
+    } else {
+      updateItem(item.id, { status: 'error', error_message: String(err.message || err) });
+      state.addEvent('upload_fail', item.channel, `Upload failed: ${item.title}: ${err.message}`);
+    }
   }
 
   refreshQueueSnapshot();
