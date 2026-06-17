@@ -1,4 +1,5 @@
 const { EventEmitter } = require('events');
+const { db } = require('./db');
 
 class ArchiverState extends EventEmitter {
   constructor() {
@@ -7,6 +8,16 @@ class ArchiverState extends EventEmitter {
     this.queue = [];
     this.transfers = new Map();
     this.system = { diskUsage: null, uptime: 0, version: require('../package.json').version };
+  }
+
+  addEvent(eventType, channel, message) {
+    const createdAt = new Date().toISOString();
+    const result = db
+      .prepare('INSERT INTO event_log (event_type, channel, message, created_at) VALUES (?, ?, ?, ?)')
+      .run(eventType, channel || null, message, createdAt);
+    const entry = { id: result.lastInsertRowid, event_type: eventType, channel: channel || null, message, created_at: createdAt };
+    this.emit('change', { scope: 'event', key: entry.id, data: entry });
+    return entry;
   }
 
   setChannelState(name, patch) {

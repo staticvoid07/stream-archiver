@@ -14,6 +14,7 @@ const queueApi = require('./api/queue');
 const configApi = require('./api/config');
 const transferApi = require('./api/transfer');
 const transferWorker = require('./workers/transferWorker');
+const eventsApi = require('./api/events');
 const fs = require('fs');
 const state = require('./state');
 
@@ -47,6 +48,7 @@ app.use('/api/youtube', youtubeApi);
 app.use('/api/queue', queueApi);
 app.use('/api/config', configApi);
 app.use('/api/transfer', transferApi);
+app.use('/api/events', eventsApi);
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'ui', 'index.html')));
 app.get('/transfer', (req, res) => res.sendFile(path.join(__dirname, 'ui', 'transfer.html')));

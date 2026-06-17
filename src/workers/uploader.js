@@ -10,12 +10,6 @@ const POLL_INTERVAL_MS = 5_000;
 let running = false;
 let pollTimer = null;
 
-function logEvent(eventType, channel, message) {
-  db.prepare(
-    'INSERT INTO event_log (event_type, channel, message, created_at) VALUES (?, ?, ?, ?)'
-  ).run(eventType, channel, message, new Date().toISOString());
-}
-
 function refreshQueueSnapshot() {
   const rows = db.prepare('SELECT * FROM upload_queue ORDER BY created_at').all();
   state.setQueueSnapshot(rows);
@@ -79,12 +73,12 @@ async function processItem(item) {
     ).run(item.filepath, item.destination_id, videoId, new Date().toISOString(), item.channel);
 
     updateItem(item.id, { status: 'done', progress: 100, error_message: null });
-    logEvent('upload_end', item.channel, `Upload complete: ${item.title}`);
+    state.addEvent('upload_end', item.channel, `Upload complete: ${item.title}`);
 
     maybeDeleteSourceFiles(item.filepath);
   } catch (err) {
     updateItem(item.id, { status: 'error', error_message: String(err.message || err) });
-    logEvent('upload_fail', item.channel, `Upload failed: ${item.title}: ${err.message}`);
+    state.addEvent('upload_fail', item.channel, `Upload failed: ${item.title}: ${err.message}`);
   }
 
   refreshQueueSnapshot();

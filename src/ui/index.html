@@ -101,8 +101,11 @@
     <section class="bg-slate-800 rounded-lg p-4 lg:col-span-2">
       <h2 class="font-semibold mb-3">Recent activity</h2>
       <ul class="text-sm space-y-1 text-slate-400 max-h-64 overflow-y-auto">
-        <template x-for="(entry, idx) in activity" :key="idx">
-          <li x-text="entry"></li>
+        <template x-for="entry in activity" :key="entry.id">
+          <li>
+            <span class="text-slate-500" x-text="formatTimestamp(entry.created_at)"></span>
+            <span x-text="entry.channel ? ` [${entry.channel}] ${entry.message}` : ` ${entry.message}`"></span>
+          </li>
         </template>
       </ul>
     </section>
@@ -117,7 +120,9 @@
         system: { version: '', uptime: 0, diskUsage: null },
         activity: [],
 
-        init() {
+        async init() {
+          this.activity = await fetch('/api/events?limit=50').then((r) => r.json());
+
           const es = new EventSource('/api/status/stream');
           es.addEventListener('status', (event) => {
             const payload = JSON.parse(event.data);
@@ -135,7 +140,6 @@
           }
           if (payload.scope === 'channel') {
             this.channels = { ...this.channels, [payload.key]: payload.data };
-            this.activity.unshift(`${payload.key}: ${payload.data.status}`);
           } else if (payload.scope === 'queue') {
             this.queue = payload.data;
           } else if (payload.scope === 'transfer') {
@@ -148,6 +152,8 @@
             }
           } else if (payload.scope === 'system') {
             this.system = payload.data;
+          } else if (payload.scope === 'event') {
+            this.activity = [payload.data, ...this.activity].slice(0, 50);
           }
         },
 
@@ -172,6 +178,15 @@
           const h = Math.floor(seconds / 3600);
           const m = Math.floor((seconds % 3600) / 60);
           return `${h}h ${m}m`;
+        },
+
+        formatTimestamp(iso) {
+          if (!iso) return '';
+          const date = new Date(iso);
+          return date.toLocaleString(undefined, {
+            month: 'short', day: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+          });
         },
       };
     }

@@ -80,7 +80,7 @@ function startRecording(channel, streamInfo) {
     fileSizeBytes: 0,
   });
 
-  logEvent('recording_start', channel.name, `Recording started: ${filename}`);
+  state.addEvent('recording_start', channel.name, `Recording started: ${filename}`);
 
   child.on('exit', () => {
     finalizeRecording(channel.name);
@@ -161,13 +161,7 @@ function finalizeRecording(channelName) {
   }
 
   state.setChannelState(channelName, { status: 'idle', title: null, fileSizeBytes: undefined });
-  logEvent('recording_end', channelName, `Recording finished: ${path.basename(recording.filepath)}`);
-}
-
-function logEvent(eventType, channel, message) {
-  db.prepare(
-    'INSERT INTO event_log (event_type, channel, message, created_at) VALUES (?, ?, ?, ?)'
-  ).run(eventType, channel, message, new Date().toISOString());
+  state.addEvent('recording_end', channelName, `Recording finished: ${path.basename(recording.filepath)}`);
 }
 
 module.exports = {
