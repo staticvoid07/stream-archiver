@@ -69,6 +69,7 @@ function startRecording(channel, streamInfo) {
   const quality = channel.quality || getSetting('default_recording_quality', '720p,480p,best');
   const filename = buildFilename(channel.name, startTime, streamInfo.title);
   const filepath = path.join(DATA_DIR, filename);
+  const chatLogPath = filepath.replace(/\.mkv$/, '.chat.jsonl');
 
   const child = spawn('streamlink', [
     `https://twitch.tv/${channel.name}`,
@@ -93,7 +94,7 @@ function startRecording(channel, streamInfo) {
   }, STALE_CHECK_INTERVAL_MS);
 
   activeRecordings.set(channel.name, recording);
-  chatRecorder.attach(channel.name, startTime);
+  chatRecorder.attach(channel.name, startTime, chatLogPath);
 
   state.setChannelState(channel.name, {
     status: 'recording',

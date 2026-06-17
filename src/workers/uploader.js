@@ -4,6 +4,8 @@ const { db } = require('../db');
 const state = require('../state');
 const { uploadVideo, attachCaptions, addToPlaylist } = require('../services/youtubeUpload');
 const { uploadTitleFromFilename } = require('./recorder');
+const { readChatLog } = require('./chatRecorder');
+const { writeSrt } = require('./subtitleWriter');
 
 const DATA_DIR = process.env.DATA_DIR || './data';
 const POLL_INTERVAL_MS = 5_000;
@@ -104,6 +106,23 @@ async function tick() {
   }
 }
 
+function recoverChatLog(filepath) {
+  const srtPath = filepath.replace(/\.mkv$/, '.srt');
+  const chatLogPath = filepath.replace(/\.mkv$/, '.chat.jsonl');
+  if (fs.existsSync(srtPath) || !fs.existsSync(chatLogPath)) return;
+
+  const messages = readChatLog(chatLogPath);
+  if (messages.length === 0) return;
+
+  try {
+    writeSrt(srtPath, messages);
+    state.addEvent('chat_recovered', null, `Recovered ${messages.length} chat message(s) for ${path.basename(filepath)} after restart`);
+  } catch (err) {
+    // If writing fails, leave the .srt absent -- the upload will proceed without captions.
+  }
+  fs.unlink(chatLogPath, () => {});
+}
+
 function scanForOrphanedRecordings() {
   let files;
   try {
@@ -116,6 +135,8 @@ function scanForOrphanedRecordings() {
     const filepath = path.join(DATA_DIR, file);
     const hasQueueRows = db.prepare('SELECT COUNT(*) AS count FROM upload_queue WHERE filepath = ?').get(filepath);
     if (hasQueueRows.count > 0) continue;
+
+    recoverChatLog(filepath);
 
     const channelName = file.split('_')[0];
     const channelRow = db.prepare('SELECT id FROM channels WHERE name = ?').get(channelName);
