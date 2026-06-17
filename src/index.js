@@ -12,6 +12,8 @@ const uploader = require('./workers/uploader');
 const youtubeApi = require('./api/youtube');
 const queueApi = require('./api/queue');
 const configApi = require('./api/config');
+const transferApi = require('./api/transfer');
+const transferWorker = require('./workers/transferWorker');
 
 migrate();
 
@@ -40,14 +42,18 @@ app.use('/api/status', statusApi);
 app.use('/api/youtube', youtubeApi);
 app.use('/api/queue', queueApi);
 app.use('/api/config', configApi);
+app.use('/api/transfer', transferApi);
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'ui', 'index.html')));
+app.get('/transfer', (req, res) => res.sendFile(path.join(__dirname, 'ui', 'transfer.html')));
+app.get('/config', (req, res) => res.sendFile(path.join(__dirname, 'ui', 'config.html')));
 
 app.locals.startWorkers = function startWorkers() {
   if (app.locals.workersStarted) return;
   app.locals.workersStarted = true;
   monitor.startAllMonitors();
   uploader.start();
+  transferWorker.start();
 };
 
 if (require('./config').isSetupComplete()) {
