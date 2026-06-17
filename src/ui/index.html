@@ -48,12 +48,18 @@
     </section>
 
     <section class="bg-slate-800 rounded-lg p-4">
-      <h2 class="font-semibold mb-3">Upload queue</h2>
-      <template x-if="queue.length === 0">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="font-semibold">Upload queue</h2>
+        <label class="flex items-center gap-2 text-xs text-slate-400">
+          <input type="checkbox" x-model="showCompletedUploads" />
+          Show completed
+        </label>
+      </div>
+      <template x-if="visibleQueue.length === 0">
         <p class="text-slate-500 text-sm">Queue is empty.</p>
       </template>
-      <div class="space-y-2">
-        <template x-for="item in queue" :key="item.id">
+      <div class="space-y-2 max-h-80 overflow-y-auto">
+        <template x-for="item in visibleQueue" :key="item.id">
           <div class="bg-slate-700 rounded p-3 text-sm">
             <div class="flex justify-between">
               <span x-text="item.title"></span>
@@ -116,9 +122,16 @@
       return {
         channels: {},
         queue: [],
+        showCompletedUploads: false,
         transfers: {},
         system: { version: '', uptime: 0, diskUsage: null },
         activity: [],
+
+        get visibleQueue() {
+          return this.showCompletedUploads
+            ? this.queue
+            : this.queue.filter((item) => item.status !== 'done');
+        },
 
         async init() {
           this.activity = await fetch('/api/events?limit=50').then((r) => r.json());
