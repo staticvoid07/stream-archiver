@@ -31,6 +31,9 @@ async function createJob({ sourceAccountId, sourcePlaylistId, destAccountId, des
   const videos = sourcePlaylistId
     ? await listPlaylistVideos(sourceAccountId, sourcePlaylistId)
     : await listChannelVideos(sourceAccountId);
+  // YouTube returns playlist/uploads items newest-first; reverse so the
+  // transfer processes oldest videos first.
+  videos.reverse();
 
   const insertItem = db.prepare(
     'INSERT INTO transfer_items (job_id, source_video_id, title, status) VALUES (?, ?, ?, ?)'
