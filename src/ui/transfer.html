@@ -73,6 +73,14 @@
                     }"
                     x-text="job.status"></span>
             </div>
+            <p class="text-xs text-slate-400 mt-1">
+              Source: <span x-text="accountLabel(job.source_account_id)"></span>
+              <span x-show="job.source_playlist_id" x-text="` (playlist ${job.source_playlist_id})`"></span>
+              → Destination: <span x-text="accountLabel(job.dest_account_id)"></span>
+            </p>
+            <p x-show="job.status === 'running' && currentTitles[job.id]" class="text-xs text-slate-300 mt-1">
+              Currently transferring: <span x-text="currentTitles[job.id]"></span>
+            </p>
             <div class="w-full bg-slate-600 rounded h-1.5 mt-2">
               <div class="bg-indigo-500 h-1.5 rounded"
                    :style="`width: ${job.total_videos ? (job.done_videos / job.total_videos) * 100 : 0}%`"></div>
@@ -81,6 +89,25 @@
               <button x-show="job.status === 'running'" @click="pause(job.id)" class="text-indigo-400">Pause</button>
               <button x-show="job.status === 'paused'" @click="resume(job.id)" class="text-indigo-400">Resume</button>
               <button @click="cancel(job.id)" class="text-red-400">Cancel</button>
+              <button @click="toggleItems(job.id)" class="text-slate-300"
+                      x-text="expandedJobs[job.id] ? 'Hide videos' : 'Show videos'"></button>
+            </div>
+
+            <div x-show="expandedJobs[job.id]" class="mt-3 space-y-1 max-h-64 overflow-y-auto border-t border-slate-600 pt-2">
+              <template x-for="item in jobItems[job.id] || []" :key="item.id">
+                <div class="flex justify-between items-start gap-2 text-xs py-1">
+                  <span class="text-slate-300 flex-1" x-text="item.title"></span>
+                  <span class="px-1.5 py-0.5 rounded shrink-0"
+                        :class="{
+                          'bg-green-700': item.status === 'done',
+                          'bg-slate-600': item.status === 'pending',
+                          'bg-red-700': item.status === 'error',
+                          'bg-orange-700': item.status === 'skipped'
+                        }"
+                        x-text="item.status"></span>
+                </div>
+                <p x-show="item.error_message" x-text="item.error_message" class="text-red-400 text-xs -mt-1 mb-1"></p>
+              </template>
             </div>
           </div>
         </template>
@@ -93,6 +120,9 @@
       return {
         accounts: [],
         jobs: [],
+        currentTitles: {},
+        expandedJobs: {},
+        jobItems: {},
         form: { sourceAccountId: '', sourcePlaylistId: '', destAccountId: '', destPlaylistId: '' },
         error: '',
 
@@ -104,10 +134,39 @@
           }
           await this.refreshJobs();
           setInterval(() => this.refreshJobs(), 5000);
+          setInterval(() => this.refreshExpandedItems(), 5000);
+
+          const es = new EventSource('/api/status/stream');
+          es.addEventListener('status', (event) => {
+            const payload = JSON.parse(event.data);
+            if (payload.scope === 'transfer' && payload.data) {
+              this.currentTitles = { ...this.currentTitles, [payload.key]: payload.data.currentTitle };
+            }
+          });
+        },
+
+        accountLabel(id) {
+          const acc = this.accounts.find((a) => a.id === id);
+          return acc ? (acc.channel_name || acc.email) : `account ${id}`;
         },
 
         async refreshJobs() {
           this.jobs = await fetch('/api/transfer').then((r) => r.json());
+        },
+
+        async refreshExpandedItems() {
+          for (const jobId of Object.keys(this.expandedJobs)) {
+            if (this.expandedJobs[jobId]) await this.loadItems(jobId);
+          }
+        },
+
+        async loadItems(jobId) {
+          this.jobItems[jobId] = await fetch(`/api/transfer/${jobId}/items`).then((r) => r.json());
+        },
+
+        async toggleItems(jobId) {
+          this.expandedJobs[jobId] = !this.expandedJobs[jobId];
+          if (this.expandedJobs[jobId]) await this.loadItems(jobId);
         },
 
         async startTransfer() {

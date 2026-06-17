@@ -28,6 +28,13 @@ router.post('/', async (req, res) => {
   }
 });
 
+router.get('/:id/items', (req, res) => {
+  const items = db
+    .prepare('SELECT * FROM transfer_items WHERE job_id = ? ORDER BY id')
+    .all(req.params.id);
+  res.json(items);
+});
+
 router.post('/:id/pause', (req, res) => {
   transferWorker.pause(req.params.id);
   res.json({ ok: true });
