@@ -19,15 +19,15 @@ function refreshJobState(jobId) {
   });
 }
 
-async function createJob({ sourceAccountId, sourcePlaylistId, destAccountId, destPlaylistId }) {
+async function createJob({ sourceAccountId, sourcePlaylistId, destAccountId, destPlaylistId, privacy }) {
   const now = new Date().toISOString();
   const result = db
     .prepare(
       `INSERT INTO transfer_jobs
-        (source_account_id, source_playlist_id, dest_account_id, dest_playlist_id, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'pending', ?, ?)`
+        (source_account_id, source_playlist_id, dest_account_id, dest_playlist_id, privacy, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`
     )
-    .run(sourceAccountId, sourcePlaylistId || null, destAccountId, destPlaylistId || null, now, now);
+    .run(sourceAccountId, sourcePlaylistId || null, destAccountId, destPlaylistId || null, privacy || 'unlisted', now, now);
   const jobId = result.lastInsertRowid;
 
   const videos = sourcePlaylistId

@@ -10,7 +10,7 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { sourceAccountId, sourcePlaylistId, destAccountId, destPlaylistId } = req.body || {};
+  const { sourceAccountId, sourcePlaylistId, destAccountId, destPlaylistId, privacy } = req.body || {};
   if (!sourceAccountId || !destAccountId) {
     return res.status(400).json({ error: 'sourceAccountId and destAccountId are required' });
   }
@@ -20,6 +20,7 @@ router.post('/', async (req, res) => {
       sourcePlaylistId,
       destAccountId,
       destPlaylistId,
+      privacy,
     });
     const job = db.prepare('SELECT * FROM transfer_jobs WHERE id = ?').get(jobId);
     res.status(201).json(job);

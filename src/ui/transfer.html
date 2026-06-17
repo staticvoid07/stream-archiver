@@ -47,6 +47,14 @@
           Destination playlist ID (optional)
           <input x-model="form.destPlaylistId" class="w-full mt-1 rounded bg-slate-700 px-3 py-2" />
         </label>
+        <label class="block">
+          Visibility
+          <select x-model="form.privacy" class="w-full mt-1 rounded bg-slate-700 px-3 py-2">
+            <option value="public">Public</option>
+            <option value="unlisted">Unlisted</option>
+            <option value="private">Private</option>
+          </select>
+        </label>
       </div>
       <button @click="startTransfer()" class="mt-4 bg-indigo-600 hover:bg-indigo-500 rounded px-4 py-2 text-sm">
         Start transfer
@@ -77,6 +85,7 @@
               Source: <span x-text="accountLabel(job.source_account_id)"></span>
               <span x-show="job.source_playlist_id" x-text="` (playlist ${job.source_playlist_id})`"></span>
               → Destination: <span x-text="accountLabel(job.dest_account_id)"></span>
+              · Visibility: <span x-text="job.privacy"></span>
             </p>
             <p x-show="job.status === 'running' && currentItem[job.id]" class="text-xs text-slate-300 mt-1">
               Currently transferring: <span x-text="currentItem[job.id]?.title"></span>
@@ -129,7 +138,7 @@
         currentItem: {},
         expandedJobs: {},
         jobItems: {},
-        form: { sourceAccountId: '', sourcePlaylistId: '', destAccountId: '', destPlaylistId: '' },
+        form: { sourceAccountId: '', sourcePlaylistId: '', destAccountId: '', destPlaylistId: '', privacy: 'unlisted' },
         error: '',
 
         async load() {

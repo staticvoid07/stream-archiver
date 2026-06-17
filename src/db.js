@@ -73,6 +73,7 @@ function migrate() {
       source_playlist_id TEXT,
       dest_account_id INTEGER REFERENCES youtube_accounts(id),
       dest_playlist_id TEXT,
+      privacy TEXT DEFAULT 'unlisted',
       total_videos INTEGER DEFAULT 0,
       done_videos INTEGER DEFAULT 0,
       status TEXT DEFAULT 'pending',
@@ -98,6 +99,11 @@ function migrate() {
       created_at TEXT
     );
   `);
+
+  const transferJobsColumns = db.prepare('PRAGMA table_info(transfer_jobs)').all().map((c) => c.name);
+  if (!transferJobsColumns.includes('privacy')) {
+    db.exec("ALTER TABLE transfer_jobs ADD COLUMN privacy TEXT DEFAULT 'unlisted'");
+  }
 }
 
 module.exports = { db, migrate };

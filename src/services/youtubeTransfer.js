@@ -140,7 +140,7 @@ async function transferOneVideo(item, job, onProgress) {
         accountId: job.dest_account_id,
         title: metadata.title,
         description: metadata.description,
-        privacy: 'unlisted',
+        privacy: job.privacy || 'unlisted',
         playlistId: job.dest_playlist_id,
       },
       (percent) => {
