@@ -19,6 +19,7 @@
 
   <main x-data="configPage()" x-init="load()" class="p-6 max-w-4xl mx-auto space-y-6">
     <p x-show="message" x-text="message" class="text-sm text-green-400"></p>
+    <p x-show="error" x-text="error" class="text-sm text-red-400"></p>
 
     <section class="bg-slate-800 rounded-lg p-4">
       <h2 class="font-semibold mb-3">General</h2>
@@ -58,39 +59,6 @@
       </div>
       <button @click="saveSettings()" class="mt-4 bg-indigo-600 hover:bg-indigo-500 rounded px-4 py-2 text-sm">
         Save general settings
-      </button>
-    </section>
-
-    <section class="bg-slate-800 rounded-lg p-4">
-      <h2 class="font-semibold mb-3">Webhook notifications</h2>
-      <div class="grid grid-cols-2 gap-4 text-sm">
-        <label class="block col-span-2">
-          Webhook URL
-          <input x-model="webhook.url" class="w-full mt-1 rounded bg-slate-700 px-3 py-2" />
-        </label>
-        <label class="block">
-          Type
-          <select x-model="webhook.type" class="w-full mt-1 rounded bg-slate-700 px-3 py-2">
-            <option value="discord">Discord</option>
-            <option value="slack">Slack</option>
-            <option value="generic">Generic</option>
-          </select>
-        </label>
-        <div class="col-span-2">
-          <p class="mb-1">Events</p>
-          <div class="flex flex-wrap gap-3">
-            <template x-for="evt in allEvents" :key="evt">
-              <label class="flex items-center gap-1">
-                <input type="checkbox" :value="evt" @change="toggleEvent(evt, $event.target.checked)"
-                       :checked="webhook.events.includes(evt)" />
-                <span x-text="evt"></span>
-              </label>
-            </template>
-          </div>
-        </div>
-      </div>
-      <button @click="saveSettings()" class="mt-4 bg-indigo-600 hover:bg-indigo-500 rounded px-4 py-2 text-sm">
-        Save webhook settings
       </button>
     </section>
 
@@ -169,16 +137,12 @@
     function configPage() {
       return {
         settings: {},
-        webhook: { url: '', type: 'discord', events: [] },
         youtubeAccounts: [],
         channels: [],
         destinations: {},
         newChannelName: '',
         message: '',
-        allEvents: [
-          'stream_online', 'recording_start', 'recording_end',
-          'upload_start', 'upload_end', 'upload_fail', 'error',
-        ],
+        error: '',
 
         async load() {
           const [settingsRes, accountsRes, channelsRes] = await Promise.all([
@@ -187,7 +151,6 @@
             fetch('/api/channels').then((r) => r.json()),
           ]);
           this.settings = settingsRes;
-          this.webhook = settingsRes.webhook || { url: '', type: 'discord', events: [] };
           this.youtubeAccounts = accountsRes;
           this.channels = channelsRes;
           for (const ch of this.channels) {
@@ -195,16 +158,8 @@
           }
         },
 
-        toggleEvent(evt, checked) {
-          if (checked && !this.webhook.events.includes(evt)) {
-            this.webhook.events.push(evt);
-          } else if (!checked) {
-            this.webhook.events = this.webhook.events.filter((e) => e !== evt);
-          }
-        },
-
         async saveSettings() {
-          const body = { ...this.settings, webhook: this.webhook };
+          const body = { ...this.settings };
           if (!body.twitch_client_secret) delete body.twitch_client_secret;
           await fetch('/api/config', {
             method: 'POST',
@@ -242,7 +197,11 @@
         },
 
         async addDestination(channelId) {
-          if (this.youtubeAccounts.length === 0) return;
+          if (this.youtubeAccounts.length === 0) {
+            this.error = 'Connect a YouTube account first before adding a destination.';
+            setTimeout(() => (this.error = ''), 4000);
+            return;
+          }
           const res = await fetch(`/api/channels/${channelId}/destinations`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

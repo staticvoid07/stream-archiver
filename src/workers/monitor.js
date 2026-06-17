@@ -3,7 +3,6 @@ const { getSetting } = require('../config');
 const { getStreams } = require('../services/twitchApi');
 const recorder = require('./recorder');
 const state = require('../state');
-const { notify } = require('../services/notifications');
 
 const OFFLINE_GRACE_POLLS = 3;
 
@@ -39,9 +38,6 @@ async function tick(channelName) {
       monitor.offlineCount = 0;
       const inCooldown = monitor.cooldownUntil && Date.now() < monitor.cooldownUntil;
       if (!recorder.isRecording(channelName) && !inCooldown) {
-        if (!monitor.wasLive) {
-          notify('stream_online', { channel: channelName, message: `${channelName} is live: ${live.title}` });
-        }
         recorder.startRecording(channel, { title: live.title });
       }
       monitor.wasLive = true;

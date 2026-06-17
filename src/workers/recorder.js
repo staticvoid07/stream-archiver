@@ -6,7 +6,6 @@ const { getSetting } = require('../config');
 const state = require('../state');
 const chatRecorder = require('./chatRecorder');
 const { writeSrt } = require('./subtitleWriter');
-const { notify } = require('../services/notifications');
 
 const DATA_DIR = process.env.DATA_DIR || './data';
 const STALE_CHECK_INTERVAL_MS = 30_000;
@@ -81,7 +80,6 @@ function startRecording(channel, streamInfo) {
     fileSizeBytes: 0,
   });
 
-  notify('recording_start', { channel: channel.name, message: `Recording started: ${streamInfo.title}` });
   logEvent('recording_start', channel.name, `Recording started: ${filename}`);
 
   child.on('exit', () => {
@@ -163,7 +161,6 @@ function finalizeRecording(channelName) {
   }
 
   state.setChannelState(channelName, { status: 'idle', title: null, fileSizeBytes: undefined });
-  notify('recording_end', { channel: channelName, message: `Recording finished: ${path.basename(recording.filepath)}` });
   logEvent('recording_end', channelName, `Recording finished: ${path.basename(recording.filepath)}`);
 }
 

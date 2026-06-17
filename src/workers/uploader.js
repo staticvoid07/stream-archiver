@@ -3,7 +3,6 @@ const path = require('path');
 const { db } = require('../db');
 const state = require('../state');
 const { uploadVideo, attachCaptions, addToPlaylist } = require('../services/youtubeUpload');
-const { notify } = require('../services/notifications');
 
 const DATA_DIR = process.env.DATA_DIR || './data';
 const POLL_INTERVAL_MS = 5_000;
@@ -51,7 +50,6 @@ function maybeDeleteSourceFiles(filepath) {
 async function processItem(item) {
   updateItem(item.id, { status: 'uploading', progress: 0 });
   refreshQueueSnapshot();
-  notify('upload_start', { channel: item.channel, message: `Uploading: ${item.title}` });
 
   try {
     const destination = db.prepare('SELECT * FROM channel_destinations WHERE id = ?').get(item.destination_id);
@@ -81,13 +79,11 @@ async function processItem(item) {
     ).run(item.filepath, item.destination_id, videoId, new Date().toISOString(), item.channel);
 
     updateItem(item.id, { status: 'done', progress: 100, error_message: null });
-    notify('upload_end', { channel: item.channel, message: `Upload complete: ${item.title}` });
     logEvent('upload_end', item.channel, `Upload complete: ${item.title}`);
 
     maybeDeleteSourceFiles(item.filepath);
   } catch (err) {
     updateItem(item.id, { status: 'error', error_message: String(err.message || err) });
-    notify('upload_fail', { channel: item.channel, message: `Upload failed: ${item.title} (${err.message})` });
     logEvent('upload_fail', item.channel, `Upload failed: ${item.title}: ${err.message}`);
   }
 
