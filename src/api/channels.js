@@ -17,7 +17,7 @@ router.post('/', (req, res) => {
   try {
     const result = db
       .prepare('INSERT INTO channels (name, quality, check_interval, enabled) VALUES (?, ?, ?, ?)')
-      .run(name, quality || 'best', checkInterval || 60, enabled === false ? 0 : 1);
+      .run(name, quality || '720p,480p,best', checkInterval || 60, enabled === false ? 0 : 1);
     const row = db.prepare('SELECT * FROM channels WHERE id = ?').get(result.lastInsertRowid);
     if (row.enabled) monitor.addChannelMonitor(row.name);
     res.status(201).json(row);

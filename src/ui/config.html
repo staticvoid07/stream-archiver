@@ -35,8 +35,9 @@
         </label>
         <label class="block">
           Default recording quality
-          <input x-model="settings.default_recording_quality" placeholder="best"
+          <input x-model="settings.default_recording_quality" placeholder="720p,480p,best"
                  class="w-full mt-1 rounded bg-slate-700 px-3 py-2" />
+          <span class="text-xs text-slate-500">Comma-separated fallback chain, e.g. 720p,480p,best</span>
         </label>
         <label class="block">
           Default upload privacy

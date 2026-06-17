@@ -45,7 +45,7 @@ function startRecording(channel, streamInfo) {
   if (activeRecordings.has(channel.name)) return;
 
   const startTime = new Date();
-  const quality = channel.quality || getSetting('default_recording_quality', 'best');
+  const quality = channel.quality || getSetting('default_recording_quality', '720p,480p,best');
   const filename = buildFilename(channel.name, startTime, streamInfo.title);
   const filepath = path.join(DATA_DIR, filename);
 

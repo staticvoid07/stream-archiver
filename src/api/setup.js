@@ -66,7 +66,7 @@ router.post('/channels', (req, res) => {
   );
   const tx = db.transaction((rows) => {
     for (const ch of rows) {
-      insert.run(ch.name, ch.quality || 'best', ch.checkInterval || 60);
+      insert.run(ch.name, ch.quality || '720p,480p,best', ch.checkInterval || 60);
     }
   });
   tx(channels);
