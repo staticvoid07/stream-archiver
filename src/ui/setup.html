@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stream Archiver — Setup</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center py-12">
+  <div x-data="setupWizard()" class="bg-slate-800 rounded-lg shadow-xl p-8 w-full max-w-lg">
+    <h1 class="text-xl font-semibold mb-2">First-run setup</h1>
+    <p class="text-sm text-slate-400 mb-6">Step <span x-text="step"></span> of 5</p>
+
+    <p x-show="error" x-text="error" class="text-red-400 text-sm mb-4"></p>
+
+    <!-- Step 1: Admin password -->
+    <div x-show="step === 1" class="space-y-4">
+      <h2 class="font-medium">Admin account</h2>
+      <input x-model="admin.username" placeholder="Username"
+             class="w-full rounded bg-slate-700 px-3 py-2" />
+      <input x-model="admin.password" type="password" placeholder="Password"
+             class="w-full rounded bg-slate-700 px-3 py-2" />
+      <button @click="submitAdmin()" class="w-full bg-indigo-600 hover:bg-indigo-500 rounded py-2">Next</button>
+    </div>
+
+    <!-- Step 2: Twitch credentials -->
+    <div x-show="step === 2" class="space-y-4">
+      <h2 class="font-medium">Twitch credentials</h2>
+      <input x-model="twitch.clientId" placeholder="Client ID"
+             class="w-full rounded bg-slate-700 px-3 py-2" />
+      <input x-model="twitch.clientSecret" placeholder="Client Secret"
+             class="w-full rounded bg-slate-700 px-3 py-2" />
+      <button @click="submitTwitch()" class="w-full bg-indigo-600 hover:bg-indigo-500 rounded py-2">Next</button>
+    </div>
+
+    <!-- Step 3: YouTube credentials -->
+    <div x-show="step === 3" class="space-y-4">
+      <h2 class="font-medium">YouTube credentials</h2>
+      <p class="text-sm text-slate-400">Upload your Google OAuth <code>client_secrets.json</code> file.</p>
+      <input type="file" @change="youtubeFile = $event.target.files[0]" accept="application/json"
+             class="w-full text-sm" />
+      <button @click="submitYoutube()" class="w-full bg-indigo-600 hover:bg-indigo-500 rounded py-2">Next</button>
+      <button @click="step = 4" class="w-full text-slate-400 text-sm">Skip for now</button>
+    </div>
+
+    <!-- Step 4: Channels -->
+    <div x-show="step === 4" class="space-y-4">
+      <h2 class="font-medium">Channels to monitor</h2>
+      <template x-for="(ch, idx) in channels" :key="idx">
+        <div class="flex gap-2">
+          <input x-model="ch.name" placeholder="twitch channel name"
+                 class="flex-1 rounded bg-slate-700 px-3 py-2" />
+          <button @click="channels.splice(idx, 1)" class="text-red-400 px-2">x</button>
+        </div>
+      </template>
+      <button @click="channels.push({ name: '' })" class="text-sm text-indigo-400">+ Add channel</button>
+      <button @click="submitChannels()" class="w-full bg-indigo-600 hover:bg-indigo-500 rounded py-2">Next</button>
+    </div>
+
+    <!-- Step 5: Storage -->
+    <div x-show="step === 5" class="space-y-4">
+      <h2 class="font-medium">Storage</h2>
+      <label class="block text-sm">Disk usage warning threshold (%)</label>
+      <input x-model.number="storage.diskUsageWarningThreshold" type="number" min="1" max="100"
+             class="w-full rounded bg-slate-700 px-3 py-2" />
+      <button @click="finish()" class="w-full bg-indigo-600 hover:bg-indigo-500 rounded py-2">Finish setup</button>
+    </div>
+  </div>
+
+  <script>
+    function setupWizard() {
+      return {
+        step: 1,
+        error: '',
+        admin: { username: '', password: '' },
+        twitch: { clientId: '', clientSecret: '' },
+        youtubeFile: null,
+        channels: [{ name: '' }],
+        storage: { diskUsageWarningThreshold: 85 },
+
+        async post(url, body) {
+          this.error = '';
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            this.error = data.error || 'Request failed';
+            return false;
+          }
+          return true;
+        },
+
+        async submitAdmin() {
+          if (await this.post('/api/setup/admin', this.admin)) this.step = 2;
+        },
+        async submitTwitch() {
+          if (await this.post('/api/setup/twitch', this.twitch)) this.step = 3;
+        },
+        async submitYoutube() {
+          if (!this.youtubeFile) {
+            this.step = 4;
+            return;
+          }
+          const form = new FormData();
+          form.append('client_secrets', this.youtubeFile);
+          const res = await fetch('/api/setup/youtube', { method: 'POST', body: form });
+          if (res.ok) {
+            this.step = 4;
+          } else {
+            const data = await res.json().catch(() => ({}));
+            this.error = data.error || 'Upload failed';
+          }
+        },
+        async submitChannels() {
+          const channels = this.channels.filter((c) => c.name.trim());
+          if (await this.post('/api/setup/channels', { channels })) this.step = 5;
+        },
+        async finish() {
+          if (await this.post('/api/setup/storage', this.storage)) {
+            if (await this.post('/api/setup/complete', {})) {
+              window.location.href = '/';
+            }
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

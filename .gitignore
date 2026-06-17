@@ -6,3 +6,6 @@ node_modules/
 *.db-journal
 *.db-wal
 *.db-shm
+client_secrets.json
+youtube_token.pickle
+*.pickle
