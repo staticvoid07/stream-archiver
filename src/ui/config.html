@@ -92,6 +92,13 @@
               </label>
             </div>
 
+            <label class="block text-xs text-slate-400 mb-2">
+              Quality
+              <input :value="ch.quality" placeholder="720p,480p,best"
+                     @change="updateChannel(ch, { quality: $event.target.value })"
+                     class="w-full mt-1 rounded bg-slate-800 px-2 py-1 text-xs" />
+            </label>
+
             <p class="text-xs text-slate-400 mb-1">Destinations</p>
             <div class="space-y-2">
               <template x-for="dest in destinations[ch.id] || []" :key="dest.id">
