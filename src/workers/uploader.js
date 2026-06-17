@@ -3,6 +3,7 @@ const path = require('path');
 const { db } = require('../db');
 const state = require('../state');
 const { uploadVideo, attachCaptions, addToPlaylist } = require('../services/youtubeUpload');
+const { uploadTitleFromFilename } = require('./recorder');
 
 const DATA_DIR = process.env.DATA_DIR || './data';
 const POLL_INTERVAL_MS = 5_000;
@@ -123,8 +124,9 @@ function scanForOrphanedRecordings() {
         (filepath, channel, title, destination_id, youtube_account_id, playlist_id, status, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)
     `);
+    const uploadTitle = uploadTitleFromFilename(path.basename(file, '.mkv'));
     for (const dest of destinations) {
-      insert.run(filepath, channelName, path.basename(file, '.mkv'), dest.id, dest.youtube_account_id, dest.playlist_id, now, now);
+      insert.run(filepath, channelName, uploadTitle, dest.id, dest.youtube_account_id, dest.playlist_id, now, now);
     }
   }
 }

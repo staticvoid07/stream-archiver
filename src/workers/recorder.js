@@ -37,6 +37,27 @@ function buildFilename(channelName, startTime, title) {
   return `${channelName}_${y}${m}${d}_${hh}${mm}${ss}_${sanitizeTitle(title)}.mkv`;
 }
 
+const MAX_UPLOAD_TITLE_LENGTH = 100;
+
+function buildUploadTitle(startTime, title) {
+  const datePrefix = startTime.toLocaleDateString('en-US', {
+    year: 'numeric', month: 'short', day: 'numeric',
+  });
+  const cleanTitle = (title || 'Untitled').trim();
+  const full = `[${datePrefix}] ${cleanTitle}`;
+  return full.length > MAX_UPLOAD_TITLE_LENGTH ? full.slice(0, MAX_UPLOAD_TITLE_LENGTH) : full;
+}
+
+const FILENAME_PATTERN = /^[^_]+_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})_(.+)$/;
+
+function uploadTitleFromFilename(basename) {
+  const match = basename.match(FILENAME_PATTERN);
+  if (!match) return buildUploadTitle(new Date(), basename);
+  const [, y, m, d, hh, mm, ss, rawTitle] = match;
+  const startTime = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss));
+  return buildUploadTitle(startTime, rawTitle.replace(/_/g, ' '));
+}
+
 function isRecording(channelName) {
   return activeRecordings.has(channelName);
 }
@@ -60,6 +81,7 @@ function startRecording(channel, streamInfo) {
     channel: channel.name,
     filepath,
     startTime,
+    streamTitle: streamInfo.title,
     child,
     lastSize: 0,
     lastSizeChangedAt: Date.now(),
@@ -141,6 +163,7 @@ function finalizeRecording(channelName) {
         .all(channelRow.id)
     : [];
 
+  const uploadTitle = buildUploadTitle(recording.startTime, recording.streamTitle);
   const now = new Date().toISOString();
   const insert = db.prepare(`
     INSERT INTO upload_queue
@@ -151,7 +174,7 @@ function finalizeRecording(channelName) {
     insert.run(
       recording.filepath,
       channelName,
-      path.basename(recording.filepath, '.mkv'),
+      uploadTitle,
       dest.id,
       dest.youtube_account_id,
       dest.playlist_id,
@@ -167,6 +190,8 @@ function finalizeRecording(channelName) {
 module.exports = {
   sanitizeTitle,
   buildFilename,
+  buildUploadTitle,
+  uploadTitleFromFilename,
   startRecording,
   stopRecording,
   isRecording,

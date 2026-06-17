@@ -3,6 +3,13 @@ const { PassThrough } = require('stream');
 const { google } = require('googleapis');
 const { getAuthedClient } = require('./youtubeAuth');
 
+const MAX_TITLE_LENGTH = 100;
+
+function truncateTitle(title) {
+  if (!title) return 'Untitled';
+  return title.length > MAX_TITLE_LENGTH ? title.slice(0, MAX_TITLE_LENGTH) : title;
+}
+
 function progressStream(filepath, onProgress) {
   const totalBytes = fs.statSync(filepath).size;
   let uploadedBytes = 0;
@@ -24,7 +31,7 @@ async function uploadVideo(filepath, { accountId, title, description, privacy, p
     {
       part: ['snippet', 'status'],
       requestBody: {
-        snippet: { title, description: description || '' },
+        snippet: { title: truncateTitle(title), description: description || '' },
         status: { privacyStatus: privacy || 'unlisted' },
       },
       media: {
