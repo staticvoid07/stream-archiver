@@ -9,7 +9,7 @@ function sessionMiddleware() {
     secret,
     resave: false,
     saveUninitialized: false,
-    cookie: { httpOnly: true, sameSite: 'strict' },
+    cookie: { httpOnly: true, sameSite: 'lax' },
   });
 }
 
