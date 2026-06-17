@@ -85,48 +85,64 @@
           <div class="bg-slate-700 rounded p-3 text-sm">
             <div class="flex justify-between items-center mb-2">
               <span class="font-medium" x-text="ch.name"></span>
-              <label class="flex items-center gap-2 text-xs">
-                Enabled
-                <input type="checkbox" :checked="ch.enabled"
-                       @change="updateChannel(ch, { enabled: $event.target.checked })" />
-              </label>
+              <div class="flex items-center gap-3">
+                <label class="flex items-center gap-2 text-xs">
+                  Enabled
+                  <input type="checkbox" :checked="ch.enabled"
+                         @change="updateChannel(ch, { enabled: $event.target.checked })" />
+                </label>
+                <button @click="editingChannels[ch.id] = !editingChannels[ch.id]"
+                        class="text-indigo-400 text-xs"
+                        x-text="editingChannels[ch.id] ? 'Done' : 'Edit'"></button>
+              </div>
             </div>
 
-            <label class="block text-xs text-slate-400 mb-2">
-              Quality
-              <input :value="ch.quality" placeholder="720p,480p,best"
+            <div class="mb-2">
+              <p class="text-xs text-slate-400">Quality</p>
+              <input x-show="editingChannels[ch.id]" :value="ch.quality" placeholder="720p,480p,best"
                      @change="updateChannel(ch, { quality: $event.target.value })"
                      class="w-full mt-1 rounded bg-slate-800 px-2 py-1 text-xs" />
-            </label>
+              <p x-show="!editingChannels[ch.id]" class="mt-1 text-xs text-slate-300"
+                 x-text="ch.quality || '(using global default)'"></p>
+            </div>
 
             <p class="text-xs text-slate-400 mb-1">Destinations</p>
             <div class="space-y-2">
               <template x-for="dest in destinations[ch.id] || []" :key="dest.id">
-                <div class="grid grid-cols-5 gap-2 items-center bg-slate-800 rounded p-2">
-                  <select class="rounded bg-slate-700 px-2 py-1 text-xs col-span-1"
-                          @change="updateDestination(ch.id, dest, { youtubeAccountId: $event.target.value })">
-                    <template x-for="acc in youtubeAccounts" :key="acc.id">
-                      <option :value="acc.id" :selected="acc.id === dest.youtube_account_id"
-                              x-text="acc.channel_name || acc.email"></option>
-                    </template>
-                  </select>
-                  <input placeholder="Playlist ID" :value="dest.playlist_id"
-                         @change="updateDestination(ch.id, dest, { playlistId: $event.target.value })"
-                         class="rounded bg-slate-700 px-2 py-1 text-xs col-span-1" />
-                  <input placeholder="Label" :value="dest.label"
-                         @change="updateDestination(ch.id, dest, { label: $event.target.value })"
-                         class="rounded bg-slate-700 px-2 py-1 text-xs col-span-1" />
-                  <select class="rounded bg-slate-700 px-2 py-1 text-xs col-span-1"
-                          @change="updateDestination(ch.id, dest, { privacy: $event.target.value })">
-                    <option value="public" :selected="dest.privacy === 'public'">Public</option>
-                    <option value="unlisted" :selected="dest.privacy === 'unlisted'">Unlisted</option>
-                    <option value="private" :selected="dest.privacy === 'private'">Private</option>
-                  </select>
-                  <button @click="removeDestination(ch.id, dest.id)" class="text-red-400 text-xs">Remove</button>
+                <div>
+                  <div x-show="editingChannels[ch.id]" class="grid grid-cols-5 gap-2 items-center bg-slate-800 rounded p-2">
+                    <select class="rounded bg-slate-700 px-2 py-1 text-xs col-span-1"
+                            @change="updateDestination(ch.id, dest, { youtubeAccountId: $event.target.value })">
+                      <template x-for="acc in youtubeAccounts" :key="acc.id">
+                        <option :value="acc.id" :selected="acc.id === dest.youtube_account_id"
+                                x-text="acc.channel_name || acc.email"></option>
+                      </template>
+                    </select>
+                    <input placeholder="Playlist ID" :value="dest.playlist_id"
+                           @change="updateDestination(ch.id, dest, { playlistId: $event.target.value })"
+                           class="rounded bg-slate-700 px-2 py-1 text-xs col-span-1" />
+                    <input placeholder="Label" :value="dest.label"
+                           @change="updateDestination(ch.id, dest, { label: $event.target.value })"
+                           class="rounded bg-slate-700 px-2 py-1 text-xs col-span-1" />
+                    <select class="rounded bg-slate-700 px-2 py-1 text-xs col-span-1"
+                            @change="updateDestination(ch.id, dest, { privacy: $event.target.value })">
+                      <option value="public" :selected="dest.privacy === 'public'">Public</option>
+                      <option value="unlisted" :selected="dest.privacy === 'unlisted'">Unlisted</option>
+                      <option value="private" :selected="dest.privacy === 'private'">Private</option>
+                    </select>
+                    <button @click="removeDestination(ch.id, dest.id)" class="text-red-400 text-xs">Remove</button>
+                  </div>
+                  <div x-show="!editingChannels[ch.id]" class="bg-slate-800 rounded p-2 text-xs text-slate-300">
+                    <span x-text="destinationAccountLabel(dest)"></span>
+                    <span x-show="dest.playlist_id" x-text="` → playlist ${dest.playlist_id}`"></span>
+                    <span x-show="dest.label" x-text="` (${dest.label})`"></span>
+                    <span x-text="` · ${dest.privacy}`"></span>
+                  </div>
                 </div>
               </template>
             </div>
-            <button @click="addDestination(ch.id)" class="text-indigo-400 text-xs mt-2">+ Add destination</button>
+            <button x-show="editingChannels[ch.id]" @click="addDestination(ch.id)"
+                    class="text-indigo-400 text-xs mt-2">+ Add destination</button>
           </div>
         </template>
       </div>
@@ -148,6 +164,7 @@
         youtubeAccounts: [],
         channels: [],
         destinations: {},
+        editingChannels: {},
         newChannelName: '',
         message: '',
         error: '',
@@ -230,6 +247,11 @@
         async removeDestination(channelId, destId) {
           await fetch(`/api/channels/${channelId}/destinations/${destId}`, { method: 'DELETE' });
           this.destinations[channelId] = this.destinations[channelId].filter((d) => d.id !== destId);
+        },
+
+        destinationAccountLabel(dest) {
+          const acc = this.youtubeAccounts.find((a) => a.id === dest.youtube_account_id);
+          return acc ? (acc.channel_name || acc.email) : 'Unknown account';
         },
       };
     }
