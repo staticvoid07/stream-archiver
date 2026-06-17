@@ -2,13 +2,13 @@ services:
   archiver:
     build: .
     ports:
-      - "443:443"
+      - "8443:8443"
     volumes:
       - ./data:/data
       - ./config:/config
     environment:
       - DATA_DIR=/data
       - CONFIG_DIR=/config
-      - PORT=443
+      - PORT=8443
       - NODE_ENV=production
     restart: unless-stopped
