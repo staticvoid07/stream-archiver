@@ -5,6 +5,7 @@ const { migrate } = require('./db');
 const { sessionMiddleware, requireSetup, requireAuth, isPublicPath } = require('./auth');
 const authApi = require('./api/auth');
 const setupApi = require('./api/setup');
+const channelsApi = require('./api/channels');
 
 migrate();
 
@@ -27,6 +28,8 @@ app.use((req, res, next) => {
   if (isPublicPath(req.path)) return next();
   return requireAuth(req, res, next);
 });
+
+app.use('/api/channels', channelsApi);
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'ui', 'index.html')));
 
