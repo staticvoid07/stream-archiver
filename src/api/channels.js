@@ -1,5 +1,6 @@
 const express = require('express');
 const { db } = require('../db');
+const monitor = require('../workers/monitor');
 
 const router = express.Router();
 
@@ -18,6 +19,7 @@ router.post('/', (req, res) => {
       .prepare('INSERT INTO channels (name, quality, check_interval, enabled) VALUES (?, ?, ?, ?)')
       .run(name, quality || 'best', checkInterval || 60, enabled === false ? 0 : 1);
     const row = db.prepare('SELECT * FROM channels WHERE id = ?').get(result.lastInsertRowid);
+    if (row.enabled) monitor.addChannelMonitor(row.name);
     res.status(201).json(row);
   } catch (err) {
     res.status(409).json({ error: 'Channel already exists' });
@@ -39,11 +41,18 @@ router.put('/:id', (req, res) => {
     req.params.id
   );
   const row = db.prepare('SELECT * FROM channels WHERE id = ?').get(req.params.id);
+  if (row.enabled) {
+    monitor.addChannelMonitor(row.name);
+  } else {
+    monitor.removeChannelMonitor(row.name);
+  }
   res.json(row);
 });
 
 router.delete('/:id', (req, res) => {
+  const existing = db.prepare('SELECT * FROM channels WHERE id = ?').get(req.params.id);
   db.prepare('DELETE FROM channels WHERE id = ?').run(req.params.id);
+  if (existing) monitor.removeChannelMonitor(existing.name);
   res.status(204).end();
 });
 

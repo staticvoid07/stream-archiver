@@ -7,6 +7,7 @@ const authApi = require('./api/auth');
 const setupApi = require('./api/setup');
 const channelsApi = require('./api/channels');
 const statusApi = require('./api/status');
+const monitor = require('./workers/monitor');
 
 migrate();
 
@@ -38,7 +39,7 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'ui', 'index.html')
 app.locals.startWorkers = function startWorkers() {
   if (app.locals.workersStarted) return;
   app.locals.workersStarted = true;
-  console.log('Workers would start here (added in later stages)');
+  monitor.startAllMonitors();
 };
 
 if (require('./config').isSetupComplete()) {
