@@ -18,6 +18,8 @@
   </nav>
 
   <main x-data="transferPage()" x-init="load()" class="p-6 max-w-4xl mx-auto space-y-6">
+    <p x-show="error" x-text="error" class="text-sm text-red-400"></p>
+
     <section class="bg-slate-800 rounded-lg p-4">
       <h2 class="font-semibold mb-3">New transfer</h2>
       <div class="grid grid-cols-2 gap-4 text-sm">
@@ -92,9 +94,14 @@
         accounts: [],
         jobs: [],
         form: { sourceAccountId: '', sourcePlaylistId: '', destAccountId: '', destPlaylistId: '' },
+        error: '',
 
         async load() {
           this.accounts = await fetch('/api/youtube/accounts').then((r) => r.json());
+          if (this.accounts.length > 0) {
+            this.form.sourceAccountId = this.accounts[0].id;
+            this.form.destAccountId = this.accounts[0].id;
+          }
           await this.refreshJobs();
           setInterval(() => this.refreshJobs(), 5000);
         },
@@ -104,12 +111,25 @@
         },
 
         async startTransfer() {
-          if (!this.form.sourceAccountId || !this.form.destAccountId) return;
-          await fetch('/api/transfer', {
+          this.error = '';
+          if (this.accounts.length === 0) {
+            this.error = 'Connect a YouTube account first (Settings page) before starting a transfer.';
+            return;
+          }
+          if (!this.form.sourceAccountId || !this.form.destAccountId) {
+            this.error = 'Pick a source and destination account.';
+            return;
+          }
+          const res = await fetch('/api/transfer', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(this.form),
           });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            this.error = data.error || `Failed to start transfer (HTTP ${res.status}).`;
+            return;
+          }
           await this.refreshJobs();
         },
 
