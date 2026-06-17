@@ -64,7 +64,14 @@ async function processItem(item) {
 
     const srtPath = item.filepath.replace(/\.mkv$/, '.srt');
     if (fs.existsSync(srtPath)) {
-      await attachCaptions(videoId, srtPath, item.youtube_account_id);
+      try {
+        await attachCaptions(videoId, srtPath, item.youtube_account_id);
+        state.addEvent('captions_attached', item.channel, `Captions attached to video ${videoId}`);
+      } catch (err) {
+        state.addEvent('captions_failed', item.channel, `Failed to attach captions to video ${videoId}: ${err.message || err}`);
+      }
+    } else {
+      state.addEvent('captions_skipped', item.channel, `No .srt file found for ${item.title}, skipping captions`);
     }
 
     db.prepare(

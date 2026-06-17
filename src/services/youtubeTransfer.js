@@ -4,7 +4,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { google } = require('googleapis');
 const { getAuthedClient } = require('./youtubeAuth');
-const { uploadVideo } = require('./youtubeUpload');
+const { uploadVideo, attachCaptions } = require('./youtubeUpload');
 
 async function listPlaylistVideos(accountId, playlistId) {
   const auth = getAuthedClient(accountId);
@@ -87,6 +87,27 @@ async function setThumbnail(videoId, thumbnailPath, accountId) {
   });
 }
 
+async function downloadCaptionTrack(videoId, accountId, destPath) {
+  const auth = getAuthedClient(accountId);
+  const youtube = google.youtube({ version: 'v3', auth });
+  const list = await youtube.captions.list({ part: ['snippet'], videoId });
+  const track = list.data.items.find((c) => c.snippet.language === 'en') || list.data.items[0];
+  if (!track) return null;
+
+  const res = await youtube.captions.download(
+    { id: track.id, tfmt: 'srt' },
+    { responseType: 'stream' }
+  );
+  await new Promise((resolve, reject) => {
+    const out = fs.createWriteStream(destPath);
+    res.data.pipe(out);
+    res.data.on('error', reject);
+    out.on('finish', resolve);
+    out.on('error', reject);
+  });
+  return destPath;
+}
+
 async function transferOneVideo(item, job) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yt-transfer-'));
   try {
@@ -113,6 +134,16 @@ async function transferOneVideo(item, job) {
       } catch (err) {
         // Thumbnail copy is best-effort; don't fail the whole transfer over it.
       }
+    }
+
+    try {
+      const srtPath = path.join(tmpDir, 'captions.srt');
+      const downloaded = await downloadCaptionTrack(item.source_video_id, job.source_account_id, srtPath);
+      if (downloaded) {
+        await attachCaptions(destVideoId, downloaded, job.dest_account_id);
+      }
+    } catch (err) {
+      // Caption copy is best-effort; don't fail the whole transfer over it.
     }
 
     return destVideoId;
