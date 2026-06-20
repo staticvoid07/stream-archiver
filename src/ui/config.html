@@ -68,7 +68,7 @@
       <div class="space-y-2 mb-3">
         <template x-for="acc in youtubeAccounts" :key="acc.id">
           <div class="bg-slate-700 rounded p-3 text-sm flex justify-between items-center">
-            <span x-text="`${acc.channel_name || 'Unknown channel'} (${acc.email || 'no email'})`"></span>
+            <span x-text="`#${acc.id} — ${acc.channel_name || 'Unknown channel'} (${acc.email || 'no email'})`"></span>
             <button @click="disconnectAccount(acc.id)" class="text-red-400 text-xs">Disconnect</button>
           </div>
         </template>

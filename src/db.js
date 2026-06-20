@@ -29,6 +29,7 @@ function migrate() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       email TEXT,
       channel_name TEXT,
+      youtube_channel_id TEXT,
       tokens TEXT
     );
 
@@ -103,6 +104,11 @@ function migrate() {
   const transferJobsColumns = db.prepare('PRAGMA table_info(transfer_jobs)').all().map((c) => c.name);
   if (!transferJobsColumns.includes('privacy')) {
     db.exec("ALTER TABLE transfer_jobs ADD COLUMN privacy TEXT DEFAULT 'unlisted'");
+  }
+
+  const youtubeAccountsColumns = db.prepare('PRAGMA table_info(youtube_accounts)').all().map((c) => c.name);
+  if (!youtubeAccountsColumns.includes('youtube_channel_id')) {
+    db.exec('ALTER TABLE youtube_accounts ADD COLUMN youtube_channel_id TEXT');
   }
 }
 

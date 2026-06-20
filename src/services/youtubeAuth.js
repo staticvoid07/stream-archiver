@@ -44,6 +44,7 @@ async function handleCallback(code, redirectUri) {
   const channelsRes = await youtube.channels.list({ mine: true, part: ['snippet'] });
   const channel = channelsRes.data.items && channelsRes.data.items[0];
   const channelName = channel ? channel.snippet.title : null;
+  const youtubeChannelId = channel ? channel.id : null;
 
   const oauth2 = google.oauth2({ version: 'v2', auth: client });
   let email = null;
@@ -55,11 +56,27 @@ async function handleCallback(code, redirectUri) {
   }
 
   const encryptedTokens = encrypt(tokens);
-  const result = db
-    .prepare('INSERT INTO youtube_accounts (email, channel_name, tokens) VALUES (?, ?, ?)')
-    .run(email, channelName, encryptedTokens);
 
-  return db.prepare('SELECT id, email, channel_name FROM youtube_accounts WHERE id = ?').get(result.lastInsertRowid);
+  const existing = youtubeChannelId
+    ? db.prepare('SELECT id FROM youtube_accounts WHERE youtube_channel_id = ?').get(youtubeChannelId)
+    : null;
+
+  let accountId;
+  if (existing) {
+    db.prepare(
+      'UPDATE youtube_accounts SET email = ?, channel_name = ?, tokens = ? WHERE id = ?'
+    ).run(email, channelName, encryptedTokens, existing.id);
+    accountId = existing.id;
+  } else {
+    const result = db
+      .prepare(
+        'INSERT INTO youtube_accounts (email, channel_name, youtube_channel_id, tokens) VALUES (?, ?, ?, ?)'
+      )
+      .run(email, channelName, youtubeChannelId, encryptedTokens);
+    accountId = result.lastInsertRowid;
+  }
+
+  return db.prepare('SELECT id, email, channel_name FROM youtube_accounts WHERE id = ?').get(accountId);
 }
 
 function getAuthedClient(accountId, redirectUri) {
