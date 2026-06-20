@@ -8,6 +8,7 @@ const CONFIG_DIR = process.env.CONFIG_DIR || './config';
 const SCOPES = [
   'https://www.googleapis.com/auth/youtube.upload',
   'https://www.googleapis.com/auth/youtube',
+  'https://www.googleapis.com/auth/youtube.force-ssl',
 ];
 
 function loadClientSecrets() {
