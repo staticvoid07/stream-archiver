@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stream Archiver — Files</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+  <nav class="bg-slate-800 px-6 py-3 flex items-center justify-between">
+    <span class="font-semibold">Stream Archiver</span>
+    <div class="space-x-4 text-sm">
+      <a href="/" class="text-slate-300 hover:text-white">Dashboard</a>
+      <a href="/config" class="text-slate-300 hover:text-white">Settings</a>
+      <a href="/transfer" class="text-slate-300 hover:text-white">Transfer</a>
+      <a href="/files" class="text-indigo-400">Files</a>
+    </div>
+  </nav>
+
+  <main x-data="filesPage()" x-init="load()" class="p-6 max-w-5xl mx-auto space-y-4">
+    <div class="flex justify-between items-center">
+      <h1 class="text-lg font-semibold">Recordings on disk</h1>
+      <div class="flex items-center gap-3 text-sm">
+        <span class="text-slate-400" x-text="`Total: ${formatBytes(totalBytes)}`"></span>
+        <button @click="load()" class="text-indigo-400">Refresh</button>
+      </div>
+    </div>
+
+    <p x-show="error" x-text="error" class="text-sm text-red-400"></p>
+    <p x-show="message" x-text="message" class="text-sm text-green-400"></p>
+
+    <div class="flex items-center gap-3 text-sm" x-show="selected.length > 0">
+      <span x-text="`${selected.length} selected`"></span>
+      <button @click="deleteSelected()" class="text-red-400">Delete selected</button>
+      <button @click="selected = []" class="text-slate-400">Clear selection</button>
+    </div>
+
+    <template x-if="files.length === 0">
+      <p class="text-slate-500 text-sm">No recordings found.</p>
+    </template>
+
+    <div class="space-y-2">
+      <template x-for="file in files" :key="file.filename">
+        <div class="bg-slate-800 rounded-lg p-3 flex items-center gap-3 text-sm">
+          <input type="checkbox" :value="file.basename" :checked="selected.includes(file.basename)"
+                 :disabled="file.isRecording"
+                 @change="toggleSelect(file.basename, $event.target.checked)" />
+          <div class="flex-1">
+            <p x-text="file.filename" class="break-all"></p>
+            <p class="text-xs text-slate-400 mt-1">
+              <span x-text="formatBytes(file.sizeBytes)"></span>
+              · <span x-text="formatDate(file.mtime)"></span>
+              · <span x-show="file.hasSrt">captions captured</span><span x-show="!file.hasSrt">no captions</span>
+              · <span x-text="uploadStatusLabel(file)"></span>
+            </p>
+          </div>
+          <span x-show="file.isRecording" class="px-2 py-0.5 rounded text-xs bg-green-700 shrink-0">recording</span>
+          <button x-show="!file.isRecording" @click="deleteOne(file.basename)"
+                  class="text-red-400 text-xs shrink-0">Delete</button>
+        </div>
+      </template>
+    </div>
+  </main>
+
+  <script>
+    function filesPage() {
+      return {
+        files: [],
+        selected: [],
+        error: '',
+        message: '',
+
+        get totalBytes() {
+          return this.files.reduce((sum, f) => sum + f.sizeBytes, 0);
+        },
+
+        async load() {
+          this.error = '';
+          this.files = await fetch('/api/files').then((r) => r.json());
+        },
+
+        toggleSelect(basename, checked) {
+          if (checked) {
+            this.selected.push(basename);
+          } else {
+            this.selected = this.selected.filter((b) => b !== basename);
+          }
+        },
+
+        async deleteOne(basename) {
+          if (!confirm('Delete this recording and its associated files? This cannot be undone.')) return;
+          const res = await fetch(`/api/files/${encodeURIComponent(basename)}`, { method: 'DELETE' });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            this.error = data.error || `Failed to delete (HTTP ${res.status}).`;
+            return;
+          }
+          this.selected = this.selected.filter((b) => b !== basename);
+          await this.load();
+        },
+
+        async deleteSelected() {
+          if (!confirm(`Delete ${this.selected.length} recording(s) and their associated files? This cannot be undone.`)) return;
+          this.error = '';
+          let failures = 0;
+          for (const basename of [...this.selected]) {
+            const res = await fetch(`/api/files/${encodeURIComponent(basename)}`, { method: 'DELETE' });
+            if (!res.ok) failures += 1;
+          }
+          this.selected = [];
+          if (failures > 0) {
+            this.error = `${failures} file(s) could not be deleted (in use or already gone).`;
+          } else {
+            this.message = 'Selected recordings deleted.';
+            setTimeout(() => (this.message = ''), 3000);
+          }
+          await this.load();
+        },
+
+        uploadStatusLabel(file) {
+          if (file.totalDestinations === 0) return 'not queued';
+          if (file.uploadedCount === file.totalDestinations) return 'uploaded';
+          return `${file.uploadedCount}/${file.totalDestinations} destinations uploaded`;
+        },
+
+        formatBytes(bytes) {
+          if (!bytes) return '0 B';
+          const units = ['B', 'KB', 'MB', 'GB'];
+          let i = 0;
+          let value = bytes;
+          while (value >= 1024 && i < units.length - 1) {
+            value /= 1024;
+            i += 1;
+          }
+          return `${value.toFixed(1)} ${units[i]}`;
+        },
+
+        formatDate(iso) {
+          return new Date(iso).toLocaleString(undefined, {
+            month: 'short', day: 'numeric', year: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+          });
+        },
+      };
+    }
+  </script>
+</body>
+</html>

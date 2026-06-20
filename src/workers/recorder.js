@@ -65,6 +65,13 @@ function isRecording(channelName) {
   return activeRecordings.has(channelName);
 }
 
+function isFileActivelyRecording(filepath) {
+  for (const recording of activeRecordings.values()) {
+    if (recording.filepath === filepath) return true;
+  }
+  return false;
+}
+
 function startRecording(channel, streamInfo) {
   if (activeRecordings.has(channel.name)) return;
 
@@ -199,4 +206,5 @@ module.exports = {
   startRecording,
   stopRecording,
   isRecording,
+  isFileActivelyRecording,
 };
