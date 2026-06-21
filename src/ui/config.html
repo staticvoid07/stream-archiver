@@ -116,7 +116,7 @@
                             @change="updateDestination(ch.id, dest, { youtubeAccountId: $event.target.value })">
                       <template x-for="acc in youtubeAccounts" :key="acc.id">
                         <option :value="acc.id" :selected="acc.id === dest.youtube_account_id"
-                                x-text="acc.channel_name || acc.email"></option>
+                                x-text="`#${acc.id} — ${acc.channel_name || acc.email}`"></option>
                       </template>
                     </select>
                     <input placeholder="Playlist ID" :value="dest.playlist_id"
@@ -252,7 +252,7 @@
 
         destinationAccountLabel(dest) {
           const acc = this.youtubeAccounts.find((a) => a.id === dest.youtube_account_id);
-          return acc ? (acc.channel_name || acc.email) : 'Unknown account';
+          return acc ? `#${acc.id} — ${acc.channel_name || acc.email}` : 'Unknown account';
         },
       };
     }

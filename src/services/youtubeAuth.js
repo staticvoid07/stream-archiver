@@ -57,15 +57,21 @@ async function handleCallback(code, redirectUri) {
 
   const encryptedTokens = encrypt(tokens);
 
-  const existing = youtubeChannelId
+  let existing = youtubeChannelId
     ? db.prepare('SELECT id FROM youtube_accounts WHERE youtube_channel_id = ?').get(youtubeChannelId)
     : null;
+
+  if (!existing && channelName) {
+    existing = db
+      .prepare('SELECT id FROM youtube_accounts WHERE channel_name = ? AND youtube_channel_id IS NULL')
+      .get(channelName);
+  }
 
   let accountId;
   if (existing) {
     db.prepare(
-      'UPDATE youtube_accounts SET email = ?, channel_name = ?, tokens = ? WHERE id = ?'
-    ).run(email, channelName, encryptedTokens, existing.id);
+      'UPDATE youtube_accounts SET email = ?, channel_name = ?, youtube_channel_id = ?, tokens = ? WHERE id = ?'
+    ).run(email, channelName, youtubeChannelId, encryptedTokens, existing.id);
     accountId = existing.id;
   } else {
     const result = db
