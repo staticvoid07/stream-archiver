@@ -55,6 +55,7 @@
           <input type="checkbox" x-model="showCompletedUploads" />
           Show completed
         </label>
+        <button @click="clearFinished()" class="text-xs text-red-400">Clear finished</button>
       </div>
       <template x-if="visibleQueue.length === 0">
         <p class="text-slate-500 text-sm">Queue is empty.</p>
@@ -173,6 +174,11 @@
 
         async retry(id) {
           await fetch(`/api/queue/retry/${id}`, { method: 'POST' });
+        },
+
+        async clearFinished() {
+          if (!confirm('Remove all completed and errored uploads from the queue history? This cannot be undone.')) return;
+          await fetch('/api/queue/clear', { method: 'POST' });
         },
 
         formatBytes(bytes) {

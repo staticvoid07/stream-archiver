@@ -195,4 +195,4 @@ function retry(id) {
   return true;
 }
 
-module.exports = { start, retry };
+module.exports = { start, retry, refreshQueueSnapshot };

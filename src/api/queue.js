@@ -17,7 +17,14 @@ router.post('/retry/:id', (req, res) => {
 
 router.delete('/:id', (req, res) => {
   db.prepare('DELETE FROM upload_queue WHERE id = ?').run(req.params.id);
+  uploader.refreshQueueSnapshot();
   res.status(204).end();
+});
+
+router.post('/clear', (req, res) => {
+  const result = db.prepare("DELETE FROM upload_queue WHERE status IN ('done', 'error')").run();
+  uploader.refreshQueueSnapshot();
+  res.json({ cleared: result.changes });
 });
 
 module.exports = router;
