@@ -197,7 +197,13 @@
         },
 
         async disconnectAccount(id) {
-          await fetch(`/api/youtube/accounts/${id}`, { method: 'DELETE' });
+          this.error = '';
+          const res = await fetch(`/api/youtube/accounts/${id}`, { method: 'DELETE' });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            this.error = data.error || `Failed to disconnect account (HTTP ${res.status}).`;
+            return;
+          }
           this.youtubeAccounts = this.youtubeAccounts.filter((a) => a.id !== id);
         },
 

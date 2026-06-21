@@ -36,8 +36,17 @@ router.get('/callback', async (req, res) => {
 });
 
 router.delete('/accounts/:id', (req, res) => {
-  db.prepare('DELETE FROM youtube_accounts WHERE id = ?').run(req.params.id);
-  res.status(204).end();
+  try {
+    db.prepare('DELETE FROM youtube_accounts WHERE id = ?').run(req.params.id);
+    res.status(204).end();
+  } catch (err) {
+    if (err.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' || err.code === 'SQLITE_CONSTRAINT_TRIGGER') {
+      return res.status(409).json({
+        error: 'This account still has upload history or destinations referencing it and cannot be removed.',
+      });
+    }
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;
