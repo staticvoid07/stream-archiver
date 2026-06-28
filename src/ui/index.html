@@ -6,6 +6,7 @@
   <title>Stream Archiver</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="/assets/toast.js"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
   <nav class="bg-slate-800 px-6 py-3 flex items-center justify-between">
@@ -35,9 +36,10 @@
                     :class="{
                       'bg-green-700': ch.status === 'recording',
                       'bg-slate-600': ch.status === 'idle',
-                      'bg-yellow-700': ch.status === 'uploading'
+                      'bg-yellow-700': ch.status === 'uploading',
+                      'bg-orange-700': ch.status === 'no_destinations'
                     }"
-                    x-text="ch.status"></span>
+                    x-text="ch.status === 'no_destinations' ? 'live (no destinations)' : ch.status"></span>
             </div>
             <p x-show="ch.title" x-text="ch.title" class="text-slate-400 mt-1"></p>
             <p x-show="ch.fileSizeBytes" class="text-slate-500 text-xs mt-1">
@@ -174,11 +176,13 @@
 
         async retry(id) {
           await fetch(`/api/queue/retry/${id}`, { method: 'POST' });
+          toast('Upload retry queued');
         },
 
         async clearFinished() {
           if (!confirm('Remove all completed and errored uploads from the queue history? This cannot be undone.')) return;
           await fetch('/api/queue/clear', { method: 'POST' });
+          toast('Finished uploads cleared');
         },
 
         formatBytes(bytes) {

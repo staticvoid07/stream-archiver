@@ -6,6 +6,7 @@
   <title>Stream Archiver — Settings</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="/assets/toast.js"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
   <nav class="bg-slate-800 px-6 py-3 flex items-center justify-between">
@@ -194,6 +195,7 @@
           });
           this.message = 'Settings saved.';
           setTimeout(() => (this.message = ''), 2000);
+          toast('Settings saved');
         },
 
         async disconnectAccount(id) {
@@ -202,9 +204,11 @@
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
             this.error = data.error || `Failed to disconnect account (HTTP ${res.status}).`;
+            toast(this.error, 'error');
             return;
           }
           this.youtubeAccounts = this.youtubeAccounts.filter((a) => a.id !== id);
+          toast('Account disconnected');
         },
 
         async addChannel() {
@@ -218,6 +222,7 @@
           this.channels.push(channel);
           this.destinations[channel.id] = [];
           this.newChannelName = '';
+          toast(`Channel "${channel.name}" added`);
         },
 
         async updateChannel(ch, patch) {
@@ -226,12 +231,14 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(patch),
           });
+          toast(`Channel "${ch.name}" updated`);
         },
 
         async addDestination(channelId) {
           if (this.youtubeAccounts.length === 0) {
             this.error = 'Connect a YouTube account first before adding a destination.';
             setTimeout(() => (this.error = ''), 4000);
+            toast(this.error, 'error');
             return;
           }
           const res = await fetch(`/api/channels/${channelId}/destinations`, {
@@ -241,6 +248,7 @@
           });
           const dest = await res.json();
           this.destinations[channelId] = [...(this.destinations[channelId] || []), dest];
+          toast('Destination added');
         },
 
         async updateDestination(channelId, dest, patch) {
@@ -249,11 +257,13 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(patch),
           });
+          toast('Destination updated');
         },
 
         async removeDestination(channelId, destId) {
           await fetch(`/api/channels/${channelId}/destinations/${destId}`, { method: 'DELETE' });
           this.destinations[channelId] = this.destinations[channelId].filter((d) => d.id !== destId);
+          toast('Destination removed');
         },
 
         destinationAccountLabel(dest) {

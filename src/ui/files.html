@@ -6,6 +6,7 @@
   <title>Stream Archiver — Files</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="/assets/toast.js"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
   <nav class="bg-slate-800 px-6 py-3 flex items-center justify-between">
@@ -94,16 +95,19 @@
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
             this.error = data.error || `Failed to delete (HTTP ${res.status}).`;
+            toast(this.error, 'error');
             return;
           }
           this.selected = this.selected.filter((b) => b !== basename);
           await this.load();
+          toast('Recording deleted');
         },
 
         async deleteSelected() {
           if (!confirm(`Delete ${this.selected.length} recording(s) and their associated files? This cannot be undone.`)) return;
           this.error = '';
           let failures = 0;
+          const count = this.selected.length;
           for (const basename of [...this.selected]) {
             const res = await fetch(`/api/files/${encodeURIComponent(basename)}`, { method: 'DELETE' });
             if (!res.ok) failures += 1;
@@ -111,9 +115,11 @@
           this.selected = [];
           if (failures > 0) {
             this.error = `${failures} file(s) could not be deleted (in use or already gone).`;
+            toast(this.error, 'error');
           } else {
             this.message = 'Selected recordings deleted.';
             setTimeout(() => (this.message = ''), 3000);
+            toast(`${count} recording(s) deleted`);
           }
           await this.load();
         },

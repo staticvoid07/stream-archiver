@@ -12,6 +12,13 @@ function getChannelRow(name) {
   return db.prepare('SELECT * FROM channels WHERE name = ?').get(name);
 }
 
+function hasEnabledDestination(channelId) {
+  const row = db
+    .prepare('SELECT COUNT(*) AS count FROM channel_destinations WHERE channel_id = ? AND enabled = 1')
+    .get(channelId);
+  return row.count > 0;
+}
+
 function scheduleNext(channelName, ms) {
   const monitor = monitors.get(channelName);
   if (!monitor) return;
@@ -37,11 +44,15 @@ async function tick(channelName) {
     if (live) {
       monitor.offlineCount = 0;
       const inCooldown = monitor.cooldownUntil && Date.now() < monitor.cooldownUntil;
-      if (!recorder.isRecording(channelName) && !inCooldown) {
+      const noDestinations = !hasEnabledDestination(channel.id);
+      if (!recorder.isRecording(channelName) && !inCooldown && !noDestinations) {
         recorder.startRecording(channel, { title: live.title });
       }
       monitor.wasLive = true;
-      state.setChannelState(channelName, { status: recorder.isRecording(channelName) ? 'recording' : 'idle' });
+      let status = 'idle';
+      if (recorder.isRecording(channelName)) status = 'recording';
+      else if (noDestinations) status = 'no_destinations';
+      state.setChannelState(channelName, { status, title: live.title });
     } else {
       monitor.offlineCount += 1;
       if (monitor.offlineCount >= OFFLINE_GRACE_POLLS && recorder.isRecording(channelName)) {
